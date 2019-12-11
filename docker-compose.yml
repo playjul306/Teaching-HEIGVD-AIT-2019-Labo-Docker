@@ -50,7 +50,6 @@ services :
             - WEBAPP_2_IP=${WEBAPP_2_IP}
 networks:
     heig:
-        name: heig
         driver: bridge
         ipam:
             driver: default
