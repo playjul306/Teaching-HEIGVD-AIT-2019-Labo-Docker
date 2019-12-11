@@ -135,16 +135,56 @@ give in your report the reference of the question you are answering.
    done. Hint: You probably have to modify some configuration and
    script files in a Docker image.
 
-   1.  Test
+   **Réponse:** Ajout des codes suivants dans les fichiers correspondants
 
+   1. `docker-compose.yml`: 
+   
+      ```dockerfile
+      services :
+        webapp3:
+             container_name: ${WEBAPP_3_NAME}
+             build:
+               context: ./webapp
+               dockerfile: Dockerfile
+             networks:
+               heig:
+                 ipv4_address: ${WEBAPP_3_IP}
+             ports:
+               - "4002:3000"
+             environment:
+                  - TAG=${WEBAPP_3_NAME}
+                  - SERVER_IP=${WEBAPP_3_IP}
+      
+      haproxy:
+             environment:
+                  - WEBAPP_3_IP=${WEBAPP_3_IP}
+      ```
+   
+   2. `\ha\scripts\run.sh`
+   
+      ```dockerfile
+      sed -i 's/<s3>/$S3_PORT_3000_TCP_ADDR/g' /usr/local/etc/haproxy/haproxy.cfg
+      ```
+   
+   3. `\ha\config\haproxy.cfg` 
+   
+      ```dockerfile
+      backend nodes
+      	    server s3 ${WEBAPP_3_IP}:3000 check
+      ```
+   
 3. <a name="M3"></a>**[M3]** Based on your previous answers, you have
    detected some issues in the current solution. Now propose a better
    approach at a high level.
 
+   **Réponse: **la solution serait d'avoir un agent qui tourne en background sur chaque hôte (conteneur) et qui annonçerait sa présence au load balancer en lui envoyant par exemple son adresse IP. Le load balancer pourra donc éditer son fichier de configuration et effectuer les manipulations ci-dessus pour l'ajout de l'hôte à l'environnement. 
+   
 4. <a name="M4"></a>**[M4]** You probably noticed that the list of web
     application nodes is hardcoded in the load balancer
     configuration. How can we manage the web app nodes in a more dynamic
     fashion?
+
+    **Réponse: **comme discuté avec l'enseignant, la réponse à ce point est la même que le point précédent.
 
 5. <a name="M5"></a>**[M5]** In the physical or virtual machines of a
    typical infrastructure we tend to have not only one main process
