@@ -127,11 +127,15 @@ give in your report the reference of the question you are answering.
    solution for a production environment? What are the main problems
    when deploying it in a production environment?
 
+   **Réponse:** Non, car dans cette situation, à chaque fois qu'un serveur est déployé, il faut aller changer des fichiers de configuration dans l'infrastructure en production pour ajouter la prise en charge du nouveau noeud. Dans le cadre d'un environnement de grande envergure, ce genre de manipulation récurrente prendrait un temps conséquent à chaque ajout de noeud et donc, il faudrait automatiser cela.
+   
 2. <a name="M2"></a>**[M2]** Describe what you need to do to add new
    `webapp` container to the infrastructure. Give the exact steps of
    what you have to do without modifiying the way the things are
    done. Hint: You probably have to modify some configuration and
    script files in a Docker image.
+
+   1.  Test
 
 3. <a name="M3"></a>**[M3]** Based on your previous answers, you have
    detected some issues in the current solution. Now propose a better
