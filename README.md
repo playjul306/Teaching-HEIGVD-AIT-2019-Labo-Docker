@@ -135,7 +135,7 @@ give in your report the reference of the question you are answering.
    done. Hint: You probably have to modify some configuration and
    script files in a Docker image.
 
-   1.  
+   1.  Test
 
 3. <a name="M3"></a>**[M3]** Based on your previous answers, you have
    detected some issues in the current solution. Now propose a better
