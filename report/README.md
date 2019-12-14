@@ -123,17 +123,17 @@ architecture? Answer the following questions. The questions are
 numbered from `M1` to `M6` to refer to them later in the lab. Please
 give in your report the reference of the question you are answering.
 
-1. <a name="M1"></a>**[M1]** Do you think we can use the current
-   solution for a production environment? What are the main problems
-   when deploying it in a production environment?
+1. <a name="M1"></a>**[M1]** **Do you think we can use the current**
+   **solution for a production environment? What are the main problems**
+   **when deploying it in a production environment?**
 
    **Réponse:** Non, car dans cette situation, à chaque fois qu'un serveur est déployé, il faut aller changer des fichiers de configuration dans l'infrastructure en production pour ajouter la prise en charge du nouveau noeud. Dans le cadre d'un environnement de grande envergure, ce genre de manipulation récurrente prendrait un temps conséquent à chaque ajout de noeud et donc, il faudrait automatiser cela.
    
-2. <a name="M2"></a>**[M2]** Describe what you need to do to add new
-   `webapp` container to the infrastructure. Give the exact steps of
-   what you have to do without modifiying the way the things are
-   done. Hint: You probably have to modify some configuration and
-   script files in a Docker image.
+2. <a name="M2"></a>**[M2]** **Describe what you need to do to add new**
+   **`webapp` container to the infrastructure. Give the exact steps of**
+   **what you have to do without modifiying the way the things are**
+   **done. Hint: You probably have to modify some configuration and**
+   **script files in a Docker image.**
 
    **Réponse:** Ajout des codes suivants dans les fichiers correspondants
 
@@ -173,386 +173,84 @@ give in your report the reference of the question you are answering.
       	    server s3 ${WEBAPP_3_IP}:3000 check
       ```
    
-3. <a name="M3"></a>**[M3]** Based on your previous answers, you have
-   detected some issues in the current solution. Now propose a better
-   approach at a high level.
+3. <a name="M3"></a>**[M3]** **Based on your previous answers, you have**
+   **detected some issues in the current solution. Now propose a better**
+   **approach at a high level.**
 
    **Réponse: **la solution serait d'avoir un agent qui tourne en background sur chaque hôte (conteneur) et qui annonçerait sa présence au load balancer en lui envoyant par exemple son adresse IP. Le load balancer pourra donc éditer son fichier de configuration et effectuer les manipulations ci-dessus pour l'ajout de l'hôte à l'environnement. 
    
-4. <a name="M4"></a>**[M4]** You probably noticed that the list of web
-    application nodes is hardcoded in the load balancer
-    configuration. How can we manage the web app nodes in a more dynamic
-    fashion?
+4. <a name="M4"></a>**[M4]** **You probably noticed that the list of web**
+    **application nodes is hardcoded in the load balancer**
+    **configuration. How can we manage the web app nodes in a more dynamic**
+    **fashion?**
 
     **Réponse: **comme discuté avec l'enseignant, la réponse à ce point est la même que le point précédent. 
 
-5. <a name="M5"></a>**[M5]** In the physical or virtual machines of a
-   typical infrastructure we tend to have not only one main process
-   (like the web server or the load balancer) running, but a few
-   additional processes on the side to perform management tasks.
+5. <a name="M5"></a>**[M5]** **In the physical or virtual machines of a**
+   **typical infrastructure we tend to have not only one main process**
+   **(like the web server or the load balancer) running, but a few**
+   **additional processes on the side to perform management tasks.**
 
-   For example to monitor the distributed system as a whole it is
-   common to collect in one centralized place all the logs produced by
-   the different machines. Therefore we need a process running on each
-   machine that will forward the logs to the central place. (We could
-   also imagine a central tool that reaches out to each machine to
-   gather the logs. That's a push vs. pull problem.) It is quite
-   common to see a push mechanism used for this kind of task.
+   **For example to monitor the distributed system as a whole it is**
+   **common to collect in one centralized place all the logs produced by**
+   **the different machines. Therefore we need a process running on each**
+   **machine that will forward the logs to the central place. (We could**
+   **also imagine a central tool that reaches out to each machine to**
+   **gather the logs. That's a push vs. pull problem.) It is quite**
+   **common to see a push mechanism used for this kind of task.**
 
-   Do you think our current solution is able to run additional
-   management processes beside the main web server / load balancer
-   process in a container? If no, what is missing / required to reach
-   the goal? If yes, how to proceed to run for example a log
-   forwarding process?
+   **Do you think our current solution is able to run additional**
+   **management processes beside the main web server / load balancer**
+   **process in a container? If no, what is missing / required to reach**
+   **the goal? If yes, how to proceed to run for example a log**
+   **forwarding process?**
 
-6. <a name="M6"></a>**[M6]** In our current solution, although the
-   load balancer configuration is changing dynamically, it doesn't
-   follow dynamically the configuration of our distributed system when
-   web servers are added or removed. If we take a closer look at the
-   `run.sh` script, we see two calls to `sed` which will replace two
-   lines in the `haproxy.cfg` configuration file just before we start
-   `haproxy`. You clearly see that the configuration file has two
-   lines and the script will replace these two lines.
+6. <a name="M6"></a>**[M6]** **In our current solution, although the**
+   **load balancer configuration is changing dynamically, it doesn't**
+   **follow dynamically the configuration of our distributed system when**
+   **web servers are added or removed. If we take a closer look at the**
+   **`run.sh` script, we see two calls to `sed` which will replace two**
+   **lines in the `haproxy.cfg` configuration file just before we start**
+   **`haproxy`. You clearly see that the configuration file has two**
+   **lines and the script will replace these two lines.**
 
-   What happens if we add more web server nodes? Do you think it is
-   really dynamic? It's far away from being a dynamic
-   configuration. Can you propose a solution to solve this?
-
-#### Install the tools
-
-> In this part of the task you will set up Docker-compose with Docker
-  containers like in the previous lab. The Docker images are a little
-  bit different from the previous lab and we will work with these
-  images during this lab.
-
-You should have installed Docker-compose already in the previous lab. If not,
-download and install from:
-
-* [Docker](https://www.docker.com/)
-* [Docker compose](https://docs.docker.com/compose/)
-
-Fork the following repository and then clone the fork to your machine:
-<https://github.com/SoftEng-HEIGVD/Teaching-HEIGVD-AIT-2015-Labo-Docker>
-
-To fork the repo, just click on the `Fork` button in the GitHub interface.
-
-Once you have installed everything, start the Docker compose from the
-project folder with the following command:
-
-```bash
-$ docker-compose up --build
-```
-
-This will creates three Docker containers. One contains HAProxy, the other two contain each a sample
-web application.
-
-The containers with the web application stand for two web servers that
-are load-balanced by HAProxy.
-
-The provisioning of the VM and the containers will take several
-minutes. You should see output similar to the following:
-
-```
-Creating network "teaching-heigvd-ait-2019-labo-load-balancing_public_net" with driver "heig"
-Building webapp1
-Step 1/9 : FROM node:latest
- ---> d8c33ae35f44
-Step 2/9 : MAINTAINER Laurent Prevost <laurent.prevost@heig-vd.ch>
- ---> Using cache
- ---> 0f0e5f2e0432
-Step 3/9 : RUN apt-get update && apt-get -y install wget curl vim && apt-get clean && npm install -g bower
-[...]
-Creating s1 ... done
-Creating s2 ... done
-Creating ha ... done
-```
-
-You could verify that you have 3 running containers with the following command :
-
-`$ docker ps`
-
-You should see output similar to the following:
-
-```
-CONTAINER ID        IMAGE                                                  COMMAND                  CREATED             STATUS              PORTS                    NAMES
-a37cd48f28f5        teaching-heigvd-ait-2019-labo-load-balancing_webapp2   "docker-entrypoint.s…"   2 minutes ago       Up About a minute   0.0.0.0:4001->3000/tcp   s2
-8e3384aec724        teaching-heigvd-ait-2019-labo-load-balancing_haproxy   "/docker-entrypoint.…"   2 minutes ago       Up 2 minutes        0.0.0.0:80->80/tcp       ha
-da329f9d1ab6        teaching-heigvd-ait-2019-labo-load-balancing_webapp1   "docker-entrypoint.s…"   2 minutes ago       Up 2 minutes        0.0.0.0:4000->3000/tcp   s1
-```
-
-You could verify that you have a network heig who connect the containers :
-
-`$ docker network ls`
-
-You can now navigate to the address of the load balancer <http://192.168.42.42>
-in your favorite browser. The load balancer forwards your HTTP request to one
-of the web app containers.
+   **What happens if we add more web server nodes? Do you think it is**
+   **really dynamic? It's far away from being a dynamic**
+   **configuration. Can you propose a solution to solve this?**
+   
+   
 
 **Deliverables**:
 
-1. Take a screenshot of the stats page of HAProxy at
-   <http://192.168.42.42:1936>. You should see your backend nodes.
+1. **Take a screenshot of the stats page of HAProxy at**
+   **<http://192.168.42.42:1936>. You should see your backend nodes.**
 
-2. Give the URL of your repository URL in the lab report.
+   <img src="images/task0.png" style=" zoom:50%" />
+   
+2. **Give the URL of your repository URL in the lab report.**
+
+   voici l’url de notre repo : https://github.com/playjul306/Teaching-HEIGVD-AIT-2019-Labo-Docker
 
 
 ### <a name="task-1"></a>Task 1: Add a process supervisor to run several processes
 
-> In this task, we will learn to install a process supervisor that
-  will help us to solve the issue presented in the question
-  [M5](#M5). Installing a process supervisor gives us the ability to
-  run multiple processes at the same time in a Docker environment.
-
-A central tenet of the Docker design is the following principle (which
-for some people is a big limitation):
-
-  > One process per container
-
-This means that the designers of Docker assumed that in the normal
-case there is only a single process running inside a container. They
-designed everything around this principle. Consequently they decided
-that that a container is running only if there is a foreground process
-running. When the foreground process stops, the container
-automatically stops as well.
-
-When you normally run server software like Nginx or Apache, which are
-designed to be run as daemons, you run a command to start them. The
-command is a foreground process. What happens usually is that this
-process then forks a background process (the daemon) and exits. Thus
-when you run the command in a container the process starts and right
-after stops and your container stops, too.
-
-To avoid this behavior, you need to start your foreground process with
-an option to avoid the process to fork a daemon, but continue running
-in foreground. In fact, HAProxy starts by default in this "no daemon"
-mode.
-
-So, the question is now, how can we run multiple processes inside one
-container? The answer involves using an _init system_. An init system
-is usually part of an operating system where it manages deamons and
-coordinates the boot process. There are many different init systems,
-like _init.d_, _systemd_ and _Upstart_. Sometimes they are also called
-_process supervisors_.
-
-In this lab, we will use a small init system called `S6`
-<http://skarnet.org/software/s6/>.  And more specifically, we will use
-the `s6-overlay` scripts
-<https://github.com/just-containers/s6-overlay> which simplify the use
-of `S6` in our containers. For more details about the features, see
-<https://github.com/just-containers/s6-overlay#features>.
-
-Is this in line with the Docker philosophy? You have a good
-explanation of the `s6-overlay` maintainers' viewpoint here:
-<https://github.com/just-containers/s6-overlay#the-docker-way>
-
-The use of a process supervisor will give us the possibility to run
-one or more processes at a time in a Docker container. That's just
-what we need.
-
-So to add it to your images, you will find `TODO: [S6] Install`
-placeholders in the Docker images of [HAProxy](ha/Dockerfile#L11) and
-the [web application](webapp/Dockerfile#L16)
-
-Replace the `TODO: [S6] Install` with the following Docker
-instruction:
-
-```
-# Download and install S6 overlay
-RUN curl -sSLo /tmp/s6.tar.gz https://github.com/just-containers/s6-overlay/releases/download/v1.17.2.0/s6-overlay-amd64.tar.gz \
-  && tar xzf /tmp/s6.tar.gz -C / \
-  && rm -f /tmp/s6.tar.gz
-```
-
-Take the opportunity to change the `MAINTAINER` of the image by your
-name and email.  Replace in both Docker files the `TODO: [GEN] Replace
-with your name and email`.
-
-To build your images, run the following commands
-VM instance:
-
-```bash
-# Build the haproxy image
-cd /ha
-docker build -t <imageName> .
-
-# Build the webapp image
-cd /webapp
-docker build -t <imageName> .
-```
-
-**References**:
-
-  - [RUN](https://docs.docker.com/engine/reference/builder/#/run)
-  - [docker build](https://docs.docker.com/engine/reference/commandline/build/)
-
-**Remarks**:
-
-  - If you run your containers right now, you will notice that there
-    is no difference from the previous state of our images. That is
-    normal as we do not have configured anything for `S6` and we do
-    not start it in the container.
-
-To start the containers, first you need to stop the current containers and remove
-them. You can do that with the following commands:
-
-```bash
-# Stop and force to remove the containers
-docker rm -f s1 s2 ha
-
-# Start the containers
-docker-compose up --build
-```
-
-You can check the state of your containers as we already did it in
-previous task with `docker ps` which should produce an output similar
-to the following:
-
-```
-CONTAINER ID        IMAGE                  COMMAND             CREATED             STATUS              PORTS                                                                NAMES
-2b277f0fe8da        softengheigvd/ha       "./run.sh"          21 seconds ago      Up 20 seconds       0.0.0.0:80->80/tcp, 0.0.0.0:1936->1936/tcp, 0.0.0.0:9999->9999/tcp   ha
-0c7d8ff6562f        softengheigvd/webapp   "./run.sh"          22 seconds ago      Up 21 seconds       3000/tcp                                                             s2
-d9a4aa8da49d        softengheigvd/webapp   "./run.sh"          22 seconds ago      Up 21 seconds       3000/tcp                                                             s1
-```
-
-**Remarks**:
-
-  - Later in this lab, the two scripts `start-containers.sh` and `build-images.sh`
-    will be less relevant. During this lab, we will build and run extensively the `ha`
-    proxy image. Become familiar with the docker `build` and `run` commands.
-
-**References**:
-
-  - [docker ps](https://docs.docker.com/engine/reference/commandline/ps/)
-  - [docker run](https://docs.docker.com/engine/reference/commandline/run/)
-  - [docker rm](https://docs.docker.com/engine/reference/commandline/rm/)
-
-We need to configure `S6` as our main process and then replace the
-current one. For that we will update our Docker images
-[HAProxy](ha/Dockerfile#L47) and the
-[web application](webapp/Dockerfile#L38) and replace the: `TODO: [S6]
-Replace the following instruction` by the following Docker
-instruction:
-
-```
-# This will start S6 as our main process in our container
-ENTRYPOINT ["/init"]
-```
-
-**References**:
-
-  - [ENTRYPOINT](https://docs.docker.com/engine/reference/builder/#/entrypoint)
-
-You can build and run the updated images (use the commands already
-provided earlier).  As you can observe if you try to go to
-http://192.168.42.42, there is nothing live.
-
-It's the expected behavior for now as we just replaced the application
-process by the process supervisor one. We have a superb process
-supervisor up and running but no more application.
-
-To remedy to this situation, we will prepare the starting scripts for
-`S6` and copy them at the right place. Once we do this, they will be
-automatically taken into account and our applications will be
-available again.
-
-Let's start by creating a folder called `service` in `ha` and `webapp`
-folders. You can use the above commands :
-
-```bash
-mkdir -p /ha/services/ha /webapp/services/node
-```
-
-You should have the following folder structure:
-
-```
-|-- Root directory
-  |-- ha
-    |-- config
-    |-- scripts
-    |-- services
-      |-- ha
-    |-- Dockerfile
-  |-- webapp
-    |-- app
-    |-- services
-      |-- node
-    |-- .dockerignore
-    |-- Dockerfile
-    |-- run.sh
-```
-
-We need to copy the `run.sh` scripts as `run` files in the service
-directories.  You can achieve that by the following commands :
-
-```bash
-cp /ha/scripts/run.sh /ha/services/ha/run && chmod +x /ha/services/ha/run
-cp /webapp/scripts/run.sh /webapp/services/node/run && chmod +x /webapp/services/node/run
-```
-
-Once copied, replace the hashbang instruction in both files. Replace
-the first line of the `run` script
-
-```bash
-#!/bin/sh
-```
-by:
-
-```bash
-#!/usr/bin/with-contenv bash
-```
-
-This will instruct `S6` to give the environment variables from the
-container to the run script.
-
-The start scripts are ready but now we must copy them to the right
-place in the Docker image. In both `ha` and `webapp` Docker files, you
-need to add a `COPY` instruction to setup the service correctly.
-
-In `ha` Docker file, you need to replace: `TODO: [S6] Replace the two
-following instructions` by
-
-```
-# Copy the S6 service and make the run script executable
-COPY services/ha /etc/services.d/ha
-RUN chmod +x /etc/services.d/ha/run
-```
-
-Do the same in the `webapp`Docker file with the following replacement:
-`TODO: [S6] Replace the two following instructions` by
-
-```
-# Copy the S6 service and make the run script executable
-COPY services/node /etc/services.d/node
-RUN chmod +x /etc/services.d/node/run
-```
-
-**References**:
-
-  - [COPY](https://docs.docker.com/engine/reference/builder/#/copy)
-  - [RUN](https://docs.docker.com/engine/reference/builder/#/run)
-
-**Remarks**:
-
-  - We can discuss if is is really necessary to do `RUN chmod +x ...` in the
-    image creation as we already created the `run` files with `+x` rights. Doing
-    so make sure that we will never have issue with copy/paste of the file or
-    transferring between unix world and windows world.
-
-Build again your images and run them. If everything is working fine,
-you should be able to open http://192.168.42.42 and see the same
-content as in the previous task.
-
 **Deliverables**:
 
-1. Take a screenshot of the stats page of HAProxy at
-   <http://192.168.42.42:1936>. You should see your backend nodes. It
-   should be really similar to the screenshot of the previous task.
+1. **Take a screenshot of the stats page of HAProxy at**
+   **<http://192.168.42.42:1936>. You should see your backend nodes. It**
+   **should be really similar to the screenshot of the previous task.**
 
-2. Describe your difficulties for this task and your understanding of
-   what is happening during this task. Explain in your own words why
-   are we installing a process supervisor. Do not hesitate to do more
-   research and to find more articles on that topic to illustrate the
-   problem.
+   <img src="images/task1.png" style="zoom:50%" />
+   
+2. **Describe your difficulties for this task and your understanding of**
+   **what is happening during this task. Explain in your own words why**
+   **are we installing a process supervisor. Do not hesitate to do more**
+   **research and to find more articles on that topic to illustrate the**
+   **problem.**
+
+   Nous n’avons eu aucune difficulté lors de la réalisation de cette tâche.
+
+   Le but de cette tâches est de permettre aux conteneurs docker d’executer plusieurs processus grâce au superviseur de processus (`s6-overlay`) ajouté aux images docker. De plus cela nous permet d’éviter que le conteneur se tue une fois un processus terminé.
 
 
 ### <a name="task-2"></a>Task 2: Add a tool to manage membership in the web server cluster
