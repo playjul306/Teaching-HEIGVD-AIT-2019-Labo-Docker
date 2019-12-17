@@ -255,566 +255,64 @@ give in your report the reference of the question you are answering.
 
 ### <a name="task-2"></a>Task 2: Add a tool to manage membership in the web server cluster
 
-> Installing a cluster membership management tool will help us to
-  solve the problem we detected in [M4](#M4). In fact, we will start
-  to use what we put in place with the solution to issue [M5](#M5). We
-  will build two images with our process supervisor running the
-  cluster membership management tool `Serf`.
-
-In this task, we will focus on how to make our infrastructure more
-flexible so that we can dynamically add and remove web servers. To
-achieve this goal, we will use a tool that allows each node to know
-which other nodes exist at any given time.
-
-We will use `Serf` for this. You can read more about this tool at
-<https://www.serf.io/>.
-
-The idea is that each container will have a _Serf agent_ running on
-it, the webapp containers and the load balancer container. The Serf
-agents talk to each other using a decentralized peer-to-peer protocol
-to exchange information. They form a cluster of nodes. The main
-information they exchange is the existence of nodes in the cluster and
-what their IP addresses are. When a node appears or disappears the
-Serf agents tell each other about the event. When the information
-arrives at the load balancer we will be able to react accordingly. A
-Serf agents can trigger the execution of local scripts when it
-receives an event.
-
-So in summary, in our infrastructure, we want the following:
-
-1. Start our load balancer (HAProxy) and let it stay alive forever (or
-   at least for the longest uptime as possible).
-
-2. Start one or more backend nodes at any time after the load balancer
-   has been started.
-
-3. Make sure the load balancer knows about the nodes that appear and
-   the nodes that disappear. We want to be able to react when a new
-   web server becomes online or disappears and reconfigure the load
-   balancer based on the current state of our web server topology.
-
-In theory this seems quite clear and easy but to achieve everything,
-there remain a few steps to be done before we are ready. So we will
-start in this task by installing `Serf` and see how it is working with
-simple events and triggers, without changing yet the load balancer
-configuration. The tasks 3 to 6 will deal the latter part.
-
-To install `Serf` we have to add the following Docker instruction in
-the `ha` and `webapp` Docker files. Replace the line `TODO: [Serf]
-Install` in [ha/Dockerfile](ha/Dockerfile#L13) and
-[webapp/Dockerfile](webapp/Dockerfile#L18) with the following
-instruction:
-
-```
-# Install serf (for decentralized cluster membership: https://www.serf.io/)
-RUN mkdir /opt/bin \
-    && curl -sSLo /tmp/serf.gz https://releases.hashicorp.com/serf/0.7.0/serf_0.7.0_linux_amd64.zip \
-    && gunzip -c /tmp/serf.gz > /opt/bin/serf \
-    && chmod 755 /opt/bin/serf \
-    && rm -f /tmp/serf.gz
-```
-
-You can build your images as we did in the previous task. As expected,
-nothing new is happening when we run our updated images. `Serf` will
-not start before we add the proper service into `S6`. The next steps
-will allow us to have the following containers:
-
-```
-HAProxy container
-  S6 process
-    -> HAProxy process
-    -> Serf process
-
-WebApp containers
-  S6 process
-    -> NodeJS process
-    -> Serf process
-```
-
-Each container will run a `S6` main process with, at least, two
-processes that are our application processes and `Serf` processes.
-
-To start `Serf`, we need to create the proper service for `S6`. Let's
-do that with the creation of the service folder in `ha/services` and
-`webapp/services`. Use the following command to do that.
-
-```bash
-mkdir /ha/services/serf /webapp/services/serf
-```
-
-You should have the following folders structure:
-
-```
-|-- Root directory
-  |-- ha
-    |-- config
-    |-- scripts
-    |-- services
-      |-- ha
-      |-- serf
-    |-- Dockerfile
-  |-- webapp
-    |-- app
-    |-- services
-      |-- node
-      |-- serf
-    |-- .dockerignore
-    |-- Dockerfile
-    |-- run.sh
-```
-
-In each directory, create an executable file called `run`. You can
-achieve that by the following commands:
-
-```bash
-touch /ha/services/serf/run && chmod +x /ha/services/serf/run
-touch /webapp/services/serf/run && chmod +x /webapp/services/serf/run
-```
-
-In the `ha/services/serf/run` file, add the following script. This
-will start and enable the capabilities of `Serf` on the load
-balancer. You can ignore the tricky part of the script about process
-management. You can look at the comments and ask us fore more info if
-you are interested.
-
-The principal part between `SERF START` and `SERF END` is the command
-we prepare to run the serf agent.
-
-```bash
-#!/usr/bin/with-contenv bash
-
-# ##############################################################################
-# WARNING
-# ##############################################################################
-# S6 expects the processes it manages to stop when it sends them a SIGTERM signal.
-# The Serf agent does not stop properly when receiving a SIGTERM signal.
-#
-# Therefore, we need to do some tricks to remedy the situation. We need to
-# "simulate" the handling of SIGTERM in the script and send to Serf the signal
-# that makes it quit (SIGINT).
-#
-# Basically we need to do the following:
-# 1. Keep track of the process id (PID) of Serf Agent
-# 2. Catch the SIGTERM from S6 and send a SIGINT to Serf
-# 3. Make sure this shell script will not stop before S6 stops it, but when
-#    SIGTERM is sent, we need to stop everything.
-
-# Get the current process ID to avoid killing an unwanted process
-pid=$$
-
-# Define a function to kill the Serf process as Serf does not accept SIGTERM. In
-# place, we will send a SIGINT signal to the process to stop it correctly.
-sigterm() {
-  kill -INT $pid
-}
-
-# Trap the SIGTERM and in place run the function that will kill the process
-trap sigterm SIGTERM
-
-# ##############################################################################
-# SERF START
-# ##############################################################################
-
-# We build the Serf command to run the agent
-COMMAND="/opt/bin/serf agent"
-COMMAND="$COMMAND --join ha"
-COMMAND="$COMMAND --replay"
-COMMAND="$COMMAND --event-handler member-join=/serf-handlers/member-join.sh"
-COMMAND="$COMMAND --event-handler member-leave,member-failed=/serf-handlers/member-leave.sh"
-COMMAND="$COMMAND --tag role=$ROLE"
-
-# ##############################################################################
-# SERF END
-# ##############################################################################
-
-# Log the command
-echo "$COMMAND"
-
-# Execute the command in the background
-exec $COMMAND &
-
-# Retrieve the process ID of the command run in background. Doing that, we will
-# be able to send the SIGINT signal through the sigterm function we defined
-# to replace the SIGTERM.
-pid=$!
-
-# Wait forever to simulate a foreground process for S6. This will act as our
-# blocking process that S6 is expecting.
-wait
-```
-
-Let's take the time to analyze the `Serf` agent command. We launch the
-`Serf` agent with the command:
-
-```bash
-serf agent
-```
-
-Next, we append to the command the way to join a specific `Serf` cluster where the
-address of the cluster is `ha`. In fact, our `ha` node will act as a sort of master
-node but as we are in a decentralized architecture, it can be any of the nodes with
-a `Serf` agent.
-
-For example, if we start `ha` first, then `s2` and finally `s1`, we can imagine
-that `ha` will connect to itself as it is the first one. Then, `s2` will
-reference to `ha` to be in the same cluster and finally `s1` can reference `s2`.
-Therefore, `s1` will join the same cluster than `s2` and `ha` but through `s2`.
-
-For simplicity, all our nodes will register to the same cluster trough the `ha`
-node.
-
-```bash
---join ha
-```
-
-**Remarks**:
-
-  - Once the cluster is created in `Serf` agent, the first node which created
-    the `Serf` cluster can leave the cluster. In fact, leaving the cluster will
-    not stop it as long as the `Serf` agent is running.
-
-    Anyway, in our current solution, there is kind of misconception around the
-    way we create the `Serf` cluster. In the deliverables, describe which
-    problem exists with the current solution based on the previous explanations and
-    remarks. Propose a solution to solve the issue.
-
-To make sure that `ha` load balancer can leave and enter the cluster again, we add
-the `--replay` option. This will make the Serf agent replay the past events and then react to
-these events. In fact, due to the problem you have to guess, this will probably not
-be really useful.
-
-```bash
---replay
-```
-
-Then we append the event handlers to react to some events.
-
-```bash
---event-handler member-join=/serf-handlers/member-join.sh
---event-handler member-leave,member-failed=/serf-handlers/member-leave.sh
-```
-
-At the moment the `member-join` and `member-leave` scripts are missing. We will add
-them in a moment. These two scripts will manage the load balancer configuration.
-
-And finally, we set a tag `role=<rolename>` to our load balancer. The `$ROLE` is
-the environment variable that we have in the Docker files. With the role, we will
-be able to differentiate between the `balancer` and the `backend` nodes.
-
-```bash
---tag role=$ROLE
-```
-
-In fact, each node that will join or leave the `Serf` cluster will trigger a `join`,
-respectively `leave` events. It means that the handler scripts on the `ha` node
-will be called for all the nodes, including itself. We want to avoid reconfiguring
-`ha` proxy when itself `join`s or `leave`s the `Serf` cluster.
-
-**References**:
-
-  - [Serf agent](https://www.serf.io/docs/agent/basics.html)
-  - [Event handlers](https://www.serf.io/docs/agent/event-handlers.html)
-  - [Serf agent configuration](https://www.serf.io/docs/agent/options.html)
-  - [Join -replay](https://www.serf.io/docs/commands/join.html#_replay)
-
-Let's prepare the same kind of configuration. Copy the `run` file you just created
-in `webapp/services/serf` and replace the content between `SERF START` and `SERF END`
-by the following one:
-
-```bash
-# We build the Serf command to run the agent
-COMMAND="/opt/bin/serf agent"
-COMMAND="$COMMAND --join ha"
-COMMAND="$COMMAND --tag role=$ROLE"
-```
-
-This time, we do not need to have event handlers for the backend nodes. The
-backend nodes will just appear and disappear at some point in time and
-nothing else. The `$ROLE` is also replaced by the `-e "ROLE=backend"` from
-the Docker `run` command.
-
-Again, we need to update our Docker images to add the `Serf` service to `S6`.
-
-In both Docker image files, in the [ha](ha) and [webapp](webapp) folders,
-replace `TODO: [Serf] Add Serf S6 setup` with the instruction to copy the
-Serf agent run script and to make it executable.
-
-And finally, you can expose the `Serf` ports through your Docker image files. Replace
-the `TODO: [Serf] Expose ports` by the following content:
-
-```
-# Expose the ports for Serf
-EXPOSE 7946 7373
-```
-
-**References**:
-
-  - [EXPOSE](https://docs.docker.com/engine/reference/builder/#/expose)
-
-It's time to build the images and to run the containers. You can use the provided scripts
-or run the command manually. At this stage, you should have your application running as the
-`Serf` agents. To ensure that, you can access http://192.168.42.42 to see if you backends
-are responding and you can check the Docker logs to see what is happening. Simply run:
-
-```bash
-docker logs <container name>
-```
-
-where container name is one of:
-
-  - ha
-  - s1
-  - s2
-
-You will notice the following in the logs (or something similar).
-
-```
-==> Joining cluster...(replay: false)
-==> lookup ha on 10.0.2.3:53: no such host
-```
-
-This means that our nodes are not joining the `Serf` cluster and more important
-cannot resolve the DNS names of the nodes.
-
-You can do a simple experiment to see yourself that there is no name resolution.
-Connect to a container and run a ping command.
-
-```bash
-docker exec -ti ha /bin/bash
-
-# From ha container
-ping s1
-```
-
-The problem is due to the latest versions of Docker where the networking have
-been totally reworked.
-
-In latest Docker versions, the network part was totally rewritten and changed
-a lot. In fact, the default networks we have used until now have seen their behavior
-changed.
-
-Stop all your containers:
-
-```bash
-docker rm -f ha s1 s2
-```
-
-If you want to know more about Docker networking, take the time to read the different
-pages in the references. Docker team provide a good overview and lot of details about
-this important topic.
-
-So to start the `ha` container the command becomes:
-
-```bash
-docker run -d -p 80:80 -p 1936:1936 -p 9999:9999 --network brige --link s1 --link s2 --name ha <imageName>
-```
-
-And for the backend nodes:
-
-```bash
-docker run -d --network heig --name s1 <imageName>
-```
-
-**Remarks**:
-
-  - When we reach this point, we have a problem. If we start the HAProxy first,
-    it will not start as the two `s1` and `s2` containers are not started and we
-    try to link them through the Docker `run` command.
-
-    You can try and get the logs. You will see error logs where `s1` and `s2`
-
-    If we start `s1` and `s2` nodes before `ha`, we will have an error from `Serf`.
-    They try to connect the `Serf` cluster via `ha` container which is not running.
-
-    So the reverse proxy is not working but what we can do at least is to start
-    the containers beginning by `ha` and then backend nodes. It will make the `Serf`
-    part working and that's what we are working on at the moment and in the next
-    task.
-
-**References**:
-
-  - [docker network create](https://docs.docker.com/engine/reference/commandline/network_create/)
-  - [Understand Docker networking](https://docs.docker.com/engine/userguide/networking/)
-  - [Embedded DNS server in user-defined networks](https://docs.docker.com/engine/userguide/networking/configure-dns/)
-  - [docker run](https://docs.docker.com/engine/reference/commandline/run/)
-
-**Cleanup**:
-
-  - As we have changed the way we start our reverse proxy and web application, we
-    can remove the original `run.sh` scripts. You can use the following commands to
-    clean these two files (and folder in case of web application).
-
-    ```bash
-    rm /ha/scripts/run.sh
-    rm -r /webapp/scripts
-    ```
-
 **Deliverables**:
 
-1. Provide the docker log output for each of the containers: `ha`,
-   `s1` and `s2`. You need to create a folder `logs` in your
-   repository to store the files separately from the lab
-   report. For each lab task create a folder and name it using the
-   task number. No need to create a folder when there are no logs.
+1. **Provide the docker log output for each of the containers: `ha`,**
+   **`s1` and `s2`. You need to create a folder `logs` in your**
+   **repository to store the files separately from the lab**
+   **report. For each lab task create a folder and name it using the**
+   **task number. No need to create a folder when there are no logs.**
 
-   Example:
+   Les fichiers de log de chaque serveur pour chaque tâche se trouvent dans le répertoire `logs/` du dossier du projet comme nous pouvons le voir sur l’image ci-dessous :
 
-   ```
-   |-- root folder
-     |-- logs
-       |-- task 1
-       |-- task 3
-       |-- ...
-   ```
+   <img src="images/task2.png" style=" zoom:75%" />
+   
+2. **Give the answer to the question about the existing problem with the**
+   **current solution.**
 
-2. Give the answer to the question about the existing problem with the
-   current solution.
+   Le problème de cette solution est qu’on lie le HAProxy avec les webapp avec le flag `—link`, ce qui nous oblige à démarrer les serveurs avant le HAProxy et de devoir redémarrer le HAProxy, ainsi que tous ses noeuds pour chaque ajout de serveur.
+   
+3. **Give an explanation on how `Serf` is working. Read the official**
+   **website to get more details about the `GOSSIP` protocol used in**
+   **`Serf`. Try to find other solutions that can be used to solve**
+   **similar situations where we need some auto-discovery mechanism.**
 
-3. Give an explanation on how `Serf` is working. Read the official
-   website to get more details about the `GOSSIP` protocol used in
-   `Serf`. Try to find other solutions that can be used to solve
-   similar situations where we need some auto-discovery mechanism.
+   **`Serf`** est un outil de gestion de cluster et de détection de panne. Il permet de créer un cluster avec tous ses noeuds afin qu’il puisse communiquer entre eux. Tout cela se fait grâce à l’agent serf installé sur chacun des noeuds, ce qui permet à ces derniers d’être notifié des arrivées et départs de noeuds du cluster.
+
+   **`Serf`** permet également de détecter les noeuds défaillants en quelques secondes, d’avertir le reste du cluster et d’executer des scripts de gestion personnalisé permettant de gérer ces événements.
+
+   **`Serf`** peut aussi propagé des événements et des requêtes personnalisés vers le cluster. Ces dernières peuvent être utilisées pour déclenché des déploiements ou encore propager des configurations.
+
+   **`GOSSIP`** est un protocole de communication basé sur le protocole SWIM, il utilise UDP pour envoyer des messages en broadcast au cluster. C’est grâce à ce protocol Gossip que les prôblème majeur de serf (l'appartenance, la détection et la récupération des pannes et la propagation d'événements personnalisés) sont résolus.
+
+   Autres solutions :
+
+   - Consul
+   - Etcd
+   - Apache ZooKeeper
+
+   Sources : 
+
+   - https://www.serf.io/intro/index.html
+   - https://www.serf.io/docs/internals/gossip.html
+   - https://devopscube.com/open-source-service-discovery/
+
+   
 
 
 ### <a name="task-3"></a>Task 3: React to membership changes
 
-> Serf is really simple to use as it lets the user write their own shell
-  scripts to react to the cluster events. In this task we will
-  write the first bits and pieces of the handler scripts we need to build our solution.
-  We will start by just logging members that join the cluster and the members
-  that leave the cluster. We are preparing to solve concretely the issue
-  discovered in [M4](#M4).
-
-We reached a state where we have nearly all the pieces in place to make the infrastructure
-really dynamic. At the moment, we are missing the scripts that will react to the events
-reported by `Serf`, namely member `leave` or member `join`.
-
-We will start by creating the scripts in [ha/scripts](ha/scripts). So create two files in
-this directory and set them as executable. You can use these commands:
-
-```bash
-touch /ha/scripts/member-join.sh && chmod +x /ha/scripts/member-join.sh
-touch /ha/scripts/member-leave.sh && chmod +x /ha/scripts/member-leave.sh
-```
-
-In the `member-join.sh` script, put the following content:
-
-```bash
-#!/usr/bin/env bash
-
-echo "Member join script triggered" >> /var/log/serf.log
-
-# We iterate over stdin
-while read -a values; do
-  # We extract the hostname, the ip, the role of each line and the tags
-  HOSTNAME=${values[0]}
-  HOSTIP=${values[1]}
-  HOSTROLE=${values[2]}
-  HOSTTAGS=${values[3]}
-
-  echo "Member join event received from: $HOSTNAME with role $HOSTROLE" >> /var/log/serf.log
-done
-```
-
-Do the same for the `member-leave.sh` with the following content:
-
-```bash
-#!/usr/bin/env bash
-
-echo "Member leave/join script triggered" >> /var/log/serf.log
-
-# We iterate over stdin
-while read -a values; do
-  # We extract the hostname, the ip, the role of each line and the tags
-  HOSTNAME=${values[0]}
-  HOSTIP=${values[1]}
-  HOSTROLE=${values[2]}
-  HOSTTAGS=${values[3]}
-
-  echo "Member $SERF_EVENT event received from: $HOSTNAME with role $HOSTROLE" >> /var/log/serf.log
-done
-```
-
-We have to update our Docker file for `ha` node. Replace the
-`TODO: [Serf] Copy events handler scripts` with appropriate content to:
-
-  1. Make sure there is a directory `/serf-handlers`.
-  2. The `member-join` and `member-leave` scripts are placed in this folder.
-  3. Both of the scripts are executable.
-
-Stop all your containers to have a fresh state:
-
-```bash
-docker rm -f ha s1 s2
-```
-
-Now, build your `ha` image:
-
-```bash
-# Build the haproxy image
-cd /ha
-docker build -t <imageName> .
-```
-
-From now on, we will ask you to systematically keep the logs and copy
-them into your repository as a lab deliverable.  Whenever you see the
-notice (**keep logs**) after a command, copy the logs into the
-repository.
-
-Run the `ha` container first and capture the logs with `docker logs` (**keep the logs**).
-
-```bash
-docker run -d -p 80:80 -p 1936:1936 -p 9999:9999 --network heig --name ha <imageName>
-```
-
-Now, run one of the two backend containers and capture the logs (**keep the logs**). Shortly after
-starting the container capture also the logs of the `ha` node (**keep the logs**).
-
-```bash
-docker run -d --network heig --name s1 <imageName>
-docker run -d --network heig --name s2 <imageName>
-```
-
-**Remarks**:
-
-  - You probably noticed that we removed the `links` to container `s1` and `s2`.
-    The reason is that we will not rely on that mechanism for the next steps. For
-    the moment the communication between the reverse proxy and the backend
-    nodes is broken.
-
-Once started, get the logs (**keep the logs**) of the backend container.
-
-To check there is something happening on the node `ha` you will need to connect
-to the running container to gather the custom log file that is created in the
-handler scripts. For that, use the following command to connect to `ha`
-container in interactive mode.
-
-```bash
-docker exec -ti ha /bin/bash
-```
-
-**References**:
-
-  - [docker exec](https://docs.docker.com/engine/reference/commandline/exec/)
-
-Once done, you can simply run the following command. This command is run inside
-the running `ha` container. (**keep the logs**)
-
-```bash
-cat /var/log/serf.log
-```
-
-Once you have finished, you have simply to type `exit` in the container to quit
-your shell session and at the same time the container. The container itself will
-continue to run.
-
 **Deliverables**:
 
-1. Provide the docker log output for each of the containers:  `ha`, `s1` and `s2`.
-   Put your logs in the `logs` directory you created in the previous task.
+1. **Provide the docker log output for each of the containers:  `ha`, `s1` and `s2`.**
+   **Put your logs in the `logs` directory you created in the previous task.**
 
-3. Provide the logs from the `ha` container gathered directly from the `/var/log/serf.log`
-   file present in the container. Put the logs in the `logs` directory in your repo.
+   Tous les logs de chaque conteneur sont dans leur répertoire réspectif (`logs/task3/<container>`).
+   
+2. **Provide the logs from the `ha` container gathered directly from the `/var/log/serf.log`**
+   **file present in the container. Put the logs in the `logs` directory in your repo.**
+
+   Le fichier contenant les logs de cette étape se trouve dans (`logs/task3/ha/log-ha-serf`)
 
 
 ### <a name="task-4"></a>Task 4: Use a template engine to easily generate configuration files
