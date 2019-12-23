@@ -1,0 +1,4 @@
+CONTAINER ID        IMAGE                                     COMMAND             CREATED             STATUS              PORTS                                                                                    NAMES
+0ffc75351b0b        webapp                                    "/init"             19 minutes ago      Up 19 minutes       3000/tcp, 7373/tcp, 7946/tcp                                                             s2
+2ba9180430c0        webapp                                    "/init"             24 minutes ago      Up 24 minutes       3000/tcp, 7373/tcp, 7946/tcp                                                             s1
+27810bb13603        teachingheigvdait2019labodocker_haproxy   "/init"             24 minutes ago      Up 24 minutes       0.0.0.0:80->80/tcp, 7373/tcp, 0.0.0.0:1936->1936/tcp, 0.0.0.0:9999->9999/tcp, 7946/tcp   ha
