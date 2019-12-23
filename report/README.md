@@ -406,183 +406,41 @@ give in your report the reference of the question you are answering.
 
 ### <a name="task-6"></a>Task 6: Make the load balancer automatically reload the new configuration
 
-> Finally, we have all the pieces in place to finish our
-  solution. HAProxy will be reconfigured automatically when web app
-  nodes are leaving/joining the cluster. We will solve the problems
-  you have discussed in [M1 - 3](#M1).  Again, the solution built
-  in this lab is only one example of tools and techniques we can use to
-  solve this kind of situation. There are several other ways.
-
-The only thing missing now is to make sure the configuration of
-HAProxy is up-to-date and taken into account by HAProxy.
-
-We will try to make HAProxy reload his config with minimal
-downtime. At the moment, we will replace the line `TODO: [CFG] Replace
-this command` in [ha/services/ha/run](ha/services/ha/run) by the
-following script part. As usual, take the time to read the comments.
-
-```bash
-#!/usr/bin/with-contenv bash
-
-# ##############################################################################
-# WARNING
-# ##############################################################################
-# S6 expects the processes it manages to stop when it sends them a SIGTERM signal.
-# The Serf agent does not stop properly when receiving a SIGTERM signal.
-#
-# Therefore, we need to do some tricks to remedy the situation. We need to
-# "simulate" the handling of SIGTERM in the script and send to Serf the signal
-# that makes it quit (SIGINT).
-#
-# Basically we need to do the following:
-# 1. Keep track of the process id (PID) of Serf Agent
-# 2. Catch the SIGTERM from S6 and send a SIGINT to Serf
-# 3. Make sure this shell script will not stop before S6 stops it, but when
-#    SIGTERM is sent, we need to stop everything.
-
-# Get the current process ID to avoid killing an unwanted process
-pid=$$
-
-# Define a function to kill the Serf process as Serf does not accept SIGTERM. In
-# place, we will send a SIGINT signal to the process to stop it correctly.
-sigterm() {
-  kill -USR1 $pid
-}
-
-# Trap the SIGTERM and in place run the function that will kill the process
-trap sigterm SIGTERM
-
-# We need to keep track of the PID of HAProxy in a file for the restart process.
-# We are forced to do that because the blocking process for S6 is this shell
-# script. When we send to S6 a command to restart our process, we will lose
-# the value of the variable pid. The pid variable will stay alive until any
-# restart or stop from S6.
-#
-# In the case of a restart we need to keep the HAProxy PID to give it back to
-# HAProxy. The comments on the HAProxy command will complete this exaplanation.
-if [ -f /var/run/haproxy.pid ]; then
-    HANDOFFPID=`cat /var/run/haproxy.pid`
-fi
-
-# To kill an old HAProxy and start a new one with minimal outage 
-# HAProxy provides the -sf/-st command-line options. With these options 
-# one can give the PIDs of currently running HAProxy processes at startup.
-# This will start new HAProxy processes and when startup is complete
-# it send FINISH or TERMINATE signals to the ones given in the argument. 
-#
-# The HANDOFFPID keeps track of the PID of HAProxy. We retrieve it from the
-# the file we written the last time we (re)started HAProxy.
-exec haproxy -f /usr/local/etc/haproxy/haproxy.cfg -sf $HANDOFFPID &
-
-# Retrieve the process ID of the command run in background. Doing that, we will
-# be able to send the SIGINT signal through the sigterm function we defined
-# to replace the SIGTERM.
-pid=$!
-
-# And write it to a file to get it on next restart
-echo $pid > /var/run/haproxy.pid
-
-# Finally, we wait as S6 launches this shell script. This will simulate
-# a foreground process for S6. All that tricky stuff is required because
-# we use a process supervisor in a Docker environment. The applications need
-# to be adapted for such environments.
-wait
-```
-
-**Remarks**:
-
-  - In this lab, we do not achieve an HAProxy restart with _zero_
-    downtime. You will find an article about that in the references.
-
-**References**:
-
-  - [Stopping HAProxy](http://cbonte.github.io/haproxy-dconv/1.6/management.html#4)
-  - [Sending signal to Processes](https://bash.cyberciti.biz/guide/Sending_signal_to_Processes)
-  - [Zero downtime with HAProxy article](http://engineeringblog.yelp.com/2015/04/true-zero-downtime-haproxy-reloads.html)
-
-We need to update our `member-join` and `member-leave` scripts to make sure HAProxy
-will be restarted when its configuration is modified. For that, in both files, replace
-`TODO: [CFG] Add the command to restart HAProxy` by the following command.
-
-```bash
-# Send a SIGHUP to the process. It will restart HAProxy
-s6-svc -h /var/run/s6/services/ha
-```
-
-**References**:
-
-  - [S6 svc doc](http://skarnet.org/software/s6/s6-svc.html)
-
-It's time to build and run our images. At this stage, if you try to reach
-`http://192.168.42.42`, it will not work. No surprise as we do not start any
-backend node. Let's start one container and try to reach the same URL.
-
-You can start the web application nodes. If everything works well, you could
-reach your backend application through the load balancer.
-
-And now you can start and stop any number of nodes you want! You will
-see the dynamic reconfiguration occurring. Keep in mind that HAProxy
-will take few seconds before nodes will be available. The reason is
-that HAProxy is not so quick to restart inside the container and your
-web application is also taking time to bootstrap. And finally,
-depending of the health checks of HAProxy, your web app will not be
-available instantly.
-
-Finally, we achieved our goal to build an architecture that is dynamic
-and reacts to nodes coming and going!
-
-![Final architecture](assets/img/Lab4_schemaSerf.png)
-
 **Deliverables**:
 
-1. Take a screenshots of the HAProxy stat page showing more than 2 web
-   applications running. Additional screenshots are welcome to see a
-   sequence of experimentations like shutting down a node and starting
-   more nodes.
+1. **Take a screenshots of the HAProxy stat page showing more than 2 web**
+   **applications running. Additional screenshots are welcome to see a**
+   **sequence of experimentations like shutting down a node and starting**
+   **more nodes.**
    
-   Also provide the output of `docker ps` in a log file. At least 
-   one file is expected. You can provide one output per step of your
-   experimentation according to your screenshots.
+   **Also provide the output of `docker ps` in a log file. At least** 
+   **one file is expected. You can provide one output per step of your**
+   **experimentation according to your screenshots.**
    
-2. Give your own feelings about the final solution. Propose
-   improvements or ways to do the things differently. If any, provide
-   references to your readings for the improvements.
+   Nous avons testé notre solution en ajoutant des conteneur et en enlevant pour vérifier si notre load balancer fonctionnait comme nous le voulions.
+   
+   - Nous avons d’abord ajouté le serveur s1 et avons copié le contenu de la commande `docker ps` dans le fichier `logs/task6/0-docker_ps-s1_started`. Les captures ci-dessous nous montrent le bon fonctionnement de l’application et du load balancer.
+     <img src="images/task6-start_s1-stats.png" style=" zoom:50%" />
+     <img src="images/task6-start_s1-info.png" style=" zoom:50%" />
+   - Ensuite, nous avons ajouté le serveur s2 et avons copié le contenu de la commande `docker ps` dans le fichier `logs/task6/1-docker_ps-s2_started`. Les captures ci-dessous nous montrent le bon fonctionnement de l’application et du load balancer.
+     <img src="images/task6-start_s2-stats.png" style=" zoom:50%" />
+     <img src="images/task6-start_s2-info.png" style=" zoom:50%" />
+   - Puis, nous avons ajouté le serveur s3 et avons copié le contenu de la commande `docker ps` dans le fichier `logs/task6/2-docker_ps-s3_started`. Les captures ci-dessous nous montrent le bon fonctionnement de l’application et du load balancer.
+     <img src="images/task6-start_s3-stats.png" style=" zoom:50%" />
+     <img src="images/task6-start_s3-info.png" style=" zoom:50%" />
+   - Après coup, nous avons arrêté le serveur s3 et avons copié le contenu de la commande `docker ps` dans le fichier `logs/task6/2-docker_ps-s3_stopped`. Les captures ci-dessous nous montrent le bon fonctionnement de l’application et du load balancer.
+     <img src="images/task6-stop_s3-stats.png" style=" zoom:50%" />
+     <img src="images/task6-stop_s3-info.png" style=" zoom:50%" />
+   - Pour finir, nous avons ajouté le serveur s3 et avons copié le contenu de la commande `docker ps` dans le fichier `logs/task6/4-docker_ps-s4_started`. Les captures ci-dessous nous montrent le bon fonctionnement de l’application et du load balancer.
+     <img src="images/task6-start_s4-stats.png" style=" zoom:50%" />
+     <img src="images/task6-start_s4-info.png" style=" zoom:50%" />
+   
+   Nous avons donc pu remarquer que le load balancer est capable de gérer automatiquement la suppression et l’ajout de noeuds avec un temps allant de mois d’une seconde à 2 secondes maximum.
+   
+2. **Give your own feelings about the final solution. Propose**
+   **improvements or ways to do the things differently. If any, provide**
+   **references to your readings for the improvements.**
 
-3. (Optional:) Present a live demo where you add and remove a backend container.
+3. **(Optional:) Present a live demo where you add and remove a backend container.**
 
 
-## Windows troubleshooting
-
-It appears that Windows users can encounter a `CRLF` vs. `LF` problem when the repos is cloned without taking care of the ending lines. Therefore, if the ending lines are `CRFL`, it will produce an error message with Docker: 
-
-```bash
-... no such file or directory
-```
-
-(Take a look to this Docker issue: https://github.com/docker/docker/issues/9066, the last post show the error message).
-
-The error message is not really relevant and difficult to troubleshoot. It seems the problem is caused by the line endings not correctly interpreted by Linux when they are `CRLF` in place of `LF`. The problem is caused by cloning the repos on Windows with a system that will not keep the `LF` in the files.
-
-Fortunatelly, there is a procedure to fix the `CRLF` to `LF` and then be sure Docker will recognize the `*.sh` files.
-
-First, you need to add the file `.gitattributes` file with the following content:
-
-```bash
-* text eol=lf
-```
-
-This will ask the repos to force the ending lines to `LF` for every text files.
-
-Then, you need to reset your repository. Be sure you do not have **modified** files.
-
-```bash
-# Erease all the files in your local repository
-git rm --cached -r .
-
-# Restore the files from your local repository and apply the correct ending lines (LF)
-git reset --hard
-```
-
-Then, you are ready to go.
-
-There is a link to deeper explanation and procedure about the ending lines written by GitHub: https://help.github.com/articles/dealing-with-line-endings/
