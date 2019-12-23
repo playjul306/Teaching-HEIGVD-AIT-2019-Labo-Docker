@@ -124,11 +124,11 @@ numbered from `M1` to `M6` to refer to them later in the lab. Please
 give in your report the reference of the question you are answering.
 
 1. <a name="M1"></a>**[M1]** **Do you think we can use the current solution for a production environment? What are the main problems when deploying it in a production environment?**
-   
+  
    **Réponse:** Non, car dans cette situation, à chaque fois qu'un serveur est déployé, il faut aller changer des fichiers de configuration dans l'infrastructure en production pour ajouter la prise en charge du nouveau noeud. Dans le cadre d'un environnement de grande envergure, ce genre de manipulation récurrente prendrait un temps conséquent à chaque ajout de noeud et donc, il faudrait automatiser cela.
 
 2. <a name="M2"></a>**[M2]** **Describe what you need to do to add new `webapp` container to the infrastructure. Give the exact steps of what you have to do without modifiying the way the things are done. Hint: You probably have to modify some configuration and script files in a Docker image.**
-   
+  
    **Réponse:** Ajout des codes suivants dans les fichiers correspondants
    
    1. `docker-compose.yml`: 
@@ -168,15 +168,15 @@ give in your report the reference of the question you are answering.
       ```
    
 3. <a name="M3"></a>**[M3]** **Based on your previous answers, you have detected some issues in the current solution. Now propose a better approach at a high level.**
-   
+  
    **Réponse: **la solution serait d'avoir un agent qui tourne en background sur chaque hôte (conteneur) et qui annonçerait sa présence au load balancer en lui envoyant par exemple son adresse IP. Le load balancer pourra donc éditer son fichier de configuration et effectuer les manipulations ci-dessus pour l'ajout de l'hôte à l'environnement. 
 
 4. <a name="M4"></a>**[M4]** **You probably noticed that the list of web application nodes is hardcoded in the load balancer configuration. How can we manage the web app nodes in a more dynamic fashion?**
-    
+  
     **Réponse: **comme discuté avec l'enseignant, la réponse à ce point est la même que le point précédent. 
     
 5. <a name="M5"></a>**[M5]** **In the physical or virtual machines of a typical infrastructure we tend to have not only one main process (like the web server or the load balancer) running, but a few additional processes on the side to perform management tasks. For example to monitor the distributed system as a whole it is common to collect in one centralized place all the logs produced by the different machines. Therefore we need a process running on each machine that will forward the logs to the central place. (We could also imagine a central tool that reaches out to each machine to gather the logs. That's a push vs. pull problem.) It is quite common to see a push mechanism used for this kind of task.**
-   
+  
    **Do you think our current solution is able to run additional management processes beside the main web server / load balancer process in a container? If no, what is missing / required to reach the goal? If yes, how to proceed to run for example a log forwarding process?**
    
 6. <a name="M6"></a>**[M6]** **In our current solution, although the**
@@ -366,242 +366,43 @@ give in your report the reference of the question you are answering.
 
 ### <a name="task-5"></a>Task 5: Generate a new load balancer configuration when membership changes
 
-> We now have S6 and Serf ready in our HAProxy image. We have member
-  join/leave handler scripts and we have the handlebars template
-  engine. So we have all the pieces ready to generate the HAProxy
-  configuration dynamically. We will update our handler scripts to
-  manage the list of nodes and to generate the HAProxy configuration
-  each time the cluster has a member leave/join event.  The work in
-  this task will let us solve the problem mentioned in [M4](#M4).
-
-At this stage, we have:
-
-  - Two images with `S6` process supervisor that starts a Serf agent
-    and an "application" (HAProxy or Node web app).
-
-  - The `ha` image contains the required stuff to react to `Serf`
-    events when a container joins or leaves the `Serf` cluster.
-
-  - A template engine in the `ha` image is ready to be used to
-    generate the HAProxy configuration file.
-
-Now, we need to refine our `join` and `leave` scripts to generate a
-proper HAProxy configuration file.
-
-First, we will copy/paste the content of the
-[ha/config/haproxy.cfg](ha/config/haproxy.cfg) file into the template
-[ha/config/haproxy.cfg.hb](ha/config/haproxy.cfg.hb). You can simply
-run the following command:
-
-```bash
-cp ha/config/haproxy.cfg ha/config/haproxy.cfg.hb
-```
-
-Then we will replace the content between `# HANDLEBARS START` and
-`# HANDLEBARS STOP` by the following content:
-
-```
-{{#each addresses}}
-server {{ host }} {{ ip }}:3000 check
-{{/each}}
-```
-
-**Remarks**:
-
-  - `each` iterates over a collection of data
-
-  - `{{` and `}}` are the bars that will be interpreted by `handlebars`
-
-  - `host` and `ip` are the data contained in the JSON format of the collection
-    that handlebars will receive. We will see that right after in the `member-join.sh`
-    script. The JSON format will be: `{ "host": "<hostname>", "ip": "<ip address>" }`.
-
-Our configuration template is ready. Let's update the `member-join.sh` script to
-generate the correct configuration.
-
-The mechanism to manage the `join` and `leave` events is the following:
-
-  1. We check if the event comes from a backend node (the role is used).
-
-  2. We create a file with the hostname and IP address of each backend
-     node that joins the cluster.
-
-  3. We build the `handlebars` command to generate the new configuration from the list
-     of files that represent our backend nodes
-
-The same logic also applies when a node leaves the cluster. In this
-case, the second step will remove the file with the node data.
-
-In the file [ha/scripts/member-join.sh](ha/scripts/member-join.sh)
-replace the whole content by the following one. Take the time to read the comments.
-
-```bash
-#!/usr/bin/env bash
-
-echo "Member join script triggered" >> /var/log/serf.log
-
-BACKEND_REGISTERED=false
-
-# We iterate over stdin
-while read -a values; do
-  # We extract the hostname, the ip, the role of each line and the tags
-  HOSTNAME=${values[0]}
-  HOSTIP=${values[1]}
-  HOSTROLE=${values[2]}
-  HOSTTAGS=${values[3]}
-
-  # We only register the backend nodes
-  if [[ "$HOSTROLE" == "backend" ]]; then
-    echo "Member join event received from: $HOSTNAME with role $HOSTROLE" >> /var/log/serf.log
-
-    # We simply register the backend IP and hostname in a file in /nodes
-    # with the hostname for the file name
-    echo "$HOSTNAME $HOSTIP" > /nodes/$HOSTNAME
-
-    # We have at least one new node registered
-    BACKEND_REGISTERED=true
-  fi
-done
-
-# We only update the HAProxy configuration if we have at least one new  backend node
-if [[ "$BACKEND_REGISTERED" = true ]]; then
-  # To build the collection of nodes
-  HOSTS=""
-
-  # We iterate over each backend node registered
-  for hostfile in $(ls /nodes); do
-    # We convert the content of the backend node file to a JSON format: { "host": "<hostname>", "ip": "<ip address>" }
-    CURRENT_HOST=`cat /nodes/$hostfile | awk '{ print "{\"host\":\"" $1 "\",\"ip\":\"" $2 "\"}" }'`
-
-    # We concatenate each host
-    HOSTS="$HOSTS$CURRENT_HOST,"
-  done
-
-  # We process the template with handlebars. The sed command will simply remove the
-  # trailing comma from the hosts list.
-  handlebars --addresses "[$(echo $HOSTS | sed s/,$//)]" < /config/haproxy.cfg.hb > /usr/local/etc/haproxy/haproxy.cfg
-
-  # TODO: [CFG] Add the command to restart HAProxy
-fi
-```
-
-And here we go for the `member-leave.sh` script. The script differs only for the part where
-we remove the backend nodes registered via the `member-join.sh`.
-
-```bash
-#!/usr/bin/env bash
-
-echo "Member leave/join script triggered" >> /var/log/serf.log
-
-BACKEND_UNREGISTERED=false
-
-# We iterate over stdin
-while read -a values; do
-  # We extract the hostname, the ip, the role of each line and the tags
-  HOSTNAME=${values[0]}
-  HOSTIP=${values[1]}
-  HOSTROLE=${values[2]}
-  HOSTTAGS=${values[3]}
-
-  # We only remove the backend nodes
-  if [[ "$HOSTROLE" == "backend" ]]; then
-    echo "Member $SERF_EVENT event received from: $HOSTNAME with role $HOSTROLE" >> /var/log/serf.log
-
-    # We simply remove the file that was used to track the registered node
-    rm /nodes/$HOSTNAME
-
-    # We have at least one new node that leave the cluster
-    BACKEND_UNREGISTERED=true
-  fi
-done
-
-# We only update the HAProxy configuration if we have at least a backend that
-# left the cluster. The process to generate the HAProxy configuration is the
-# same than for the member-join script.
-if [[ "$BACKEND_UNREGISTERED" = true ]]; then
-  # To build the collection of nodes
-  HOSTS=""
-
-  # We iterate over each backend node registered
-  for hostfile in $(ls /nodes); do
-    # We convert the content of the backend node file to a JSON format: { "host": "<hostname>", "ip": "<ip address>" }
-    CURRENT_HOST=`cat /nodes/$hostfile | awk '{ print "{\"host\":\"" $1 "\",\"ip\":\"" $2 "\"}" }'`
-
-    # We concatenate each host
-    HOSTS="$HOSTS$CURRENT_HOST,"
-  done
-
-  # We process the template with handlebars. The sed command will simply remove the
-  # trailing comma from the hosts list.
-  handlebars --addresses "[$(echo $HOSTS | sed s/,$//)]" < /config/haproxy.cfg.hb > /usr/local/etc/haproxy/haproxy.cfg
-
-  # TODO: [CFG] Add the command to restart HAProxy
-fi
-```
-
-**Remarks**:
-
-  - The way we keep track the backend nodes is pretty simple and makes
-    the assumption there is no concurrency issue with `Serf`. That's
-    reasonable enough to get a quite simple solution.
-
-**Cleanup**:
-
-  - In the main configuration file that is used for bootstrapping
-    HAProxy the first time when there are no backend nodes, we have
-    the list of servers that we used in the first task and the
-    previous lab. We can remove the list. So find `TODO: [CFG] Remove
-    all the servers` and remove the list of nodes.
-
-  - In [ha/services/ha/run](ha/services/ha/run), we can remove the two lines
-    above `TODO: [CFG] Remove the following two lines`.
-
-We need to make sure the image has the folder `/nodes` created. In the
-Docker file, replace the `TODO: [CFG] Create the nodes folder` by the
-correct instruction to create the `/nodes` folder.
-
-We are ready to build and test our `ha` image. Let's proceed like in
-the [previous task](#ttb).  You should provide the same outputs for
-the deliverables. Remember that we have moved the file
-`/tmp/haproxy.cfg` to `/usr/local/etc/haproxy/haproxy.cfg` (**keep
-track of the config file like in previous step and also the output of
-`docker ps` and `docker inspect <container>`**).
-
-You can also get the list of registered nodes from inside the `ha`
-container. Simply list the files from the directory `/nodes`.  (**keep
-track of the output of the command like the logs in previous tasks**)
-
-Now, use the Docker commands to stop `s1`.
-
-You can connect again to the `ha` container and get the haproxy
-configuration file and also the list of backend nodes. Use the
-previous command to reach this goal.  (**keep track of the output of
-the ls command and the configuration file like the logs in previous
-tasks**)
-
 **Deliverables**:
 
-1. Provide the file `/usr/local/etc/haproxy/haproxy.cfg` generated in
-   the `ha` container after each step. Three files are expected.
+1. **Provide the file `/usr/local/etc/haproxy/haproxy.cfg` generated in**
+   **the `ha` container after each step. Three files are expected.**
    
-   In addition, provide a log file containing the output of the 
-   `docker ps` console and another file (per container) with
-   `docker inspect <container>`. Four files are expected.
-
-2. Provide the list of files from the `/nodes` folder inside the `ha` container.
-   One file expected with the command output.
-
-3. Provide the configuration file after you stopped one container and
-   the list of nodes present in the `/nodes` folder. One file expected
-   with the command output. Two files are expected.
+   Les fichiers de configurations (`/usr/local/etc/haproxy/haproxy.cfg`) générés après le démarrage de HA, puis de S1 et enfin de S2 se trouvent au chemin suivant : `logs/task5/ha/` et ils se nomment respectivement `ha_cfg-ha`, `ha_cfg-s1` et `ha_cfg-s2`. 
    
-    In addition, provide a log file containing the output of the 
-   `docker ps` console. One file expected.
+   **In addition, provide a log file containing the output of the** 
+**`docker ps` console and another file (per container) with**
+   **`docker inspect <container>`. Four files are expected.**
+   
+   le fichier contenant la sortie de la commmande `docker ps` est le suivant : `logs/task5/docker_ps`. 
+   
+   les fichiers contanant la sortie de la commande `docker inspect <container>` pour chacun des conteneurs se trouvent au chemin suivant : `logs/task5/` et se nomment respectivement `docker_inspect_ha`, `docker_inspect_s1` et `docker_inspect_s2`. 
+   
+2. **Provide the list of files from the `/nodes` folder inside the `ha` container.**
+   **One file expected with the command output.**
 
-4. (Optional:) Propose a different approach to manage the list of backend
-   nodes. You do not need to implement it. You can also propose your
-   own tools or the ones you discovered online. In that case, do not
-   forget to cite your references.
+   la liste des fichiers contenu dans le répertoire `/nodes ` se trouvent au chemin suivant :
+
+   `logs/task5/ha/nodes`.
+
+3. **Provide the configuration file after you stopped one container and**
+   **the list of nodes present in the `/nodes` folder. One file expected**
+   **with the command output. Two files are expected.**
+
+   le fichier de configuration (`/usr/local/etc/haproxy/haproxy.cfg`) généré après l’arret du conteneur S1, ainsi que la liste des fichiers contenu dans le répertoire `/nodes ` se trouvent dans le répertoire suivant : `logs/task5/ha/` et se nomment respectivement `ha_cfg-s1_stopped` et `nodes-s1_stopped`. 
+
+    **In addition, provide a log file containing the output of the** 
+   **`docker ps` console. One file expected.**
+
+   le fichier contenant la sortie de la commmande `docker ps` après l’arret de S1 est le suivant : `logs/task5/docker_ps-s1_stopped`. 
+
+4. **(Optional:) Propose a different approach to manage the list of backend**
+   **nodes. You do not need to implement it. You can also propose your**
+   **own tools or the ones you discovered online. In that case, do not**
+   **forget to cite your references.**
 
 ### <a name="task-6"></a>Task 6: Make the load balancer automatically reload the new configuration
 
