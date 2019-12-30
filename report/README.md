@@ -42,7 +42,7 @@ Le but de ce laboratoire est de prendre la laboratoire précédent et de l’am�
    
    1. `docker-compose.yml`: 
 
-      ```dockerfile
+      ```
    services :
         webapp3:
              container_name: ${WEBAPP_3_NAME}
@@ -65,13 +65,13 @@ Le but de ce laboratoire est de prendre la laboratoire précédent et de l’am�
    
    2. `\ha\scripts\run.sh`
    
-      ```dockerfile
+      ```
       sed -i 's/<s3>/$S3_PORT_3000_TCP_ADDR/g' /usr/local/etc/haproxy/haproxy.cfg
       ```
    
    3. `\ha\config\haproxy.cfg` 
    
-      ```dockerfile
+      ```
       backend nodes
       	    server s3 ${WEBAPP_3_IP}:3000 check
       ```
@@ -228,7 +228,7 @@ Le fichier contenant les logs de cette étape se trouve dans (`logs/task3/ha/log
    
 Les fichiers de logs contenant ces logs se trouvent dans le dossier `logs/task4/`.
    
-   le fichier contenant la commande `docker ps` se nomme `docker_ps`.
+   Le fichier contenant la commande `docker ps` se nomme `docker_ps`.
    
 Les fichiers contenant la commandes `docker inspect <container>` se nomment `docker_inspect_ha`, `docker_inspect_s1` et `docker_inspect_s2`
    
@@ -266,7 +266,7 @@ la liste des fichiers contenu dans le répertoire `/nodes ` se trouvent au chemi
    
    le fichier de configuration (`/usr/local/etc/haproxy/haproxy.cfg`) généré après l’arret du conteneur S1, ainsi que la liste des fichiers contenu dans le répertoire `/nodes ` se trouvent dans le répertoire suivant : `logs/task5/ha/` et se nomment respectivement `ha_cfg-s1_stopped` et `nodes-s1_stopped`. 
 
-    **In addition, provide a log file containing the output of the `docker ps` console. One file expected.**
+   **In addition, provide a log file containing the output of the `docker ps` console. One file expected.**
 
    le fichier contenant la sortie de la commmande `docker ps` après l’arret de S1 est le suivant : `logs/task5/docker_ps-s1_stopped`. 
    
