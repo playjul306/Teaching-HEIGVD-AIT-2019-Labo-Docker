@@ -42,38 +42,36 @@ Le but de ce laboratoire est de prendre la laboratoire précédent et de l’am�
    
    1. `docker-compose.yml` : 
 
-      
-   			services :
-        		webapp3:
-             		container_name: ${WEBAPP_3_NAME}
-             		build:
-               		  context: ./webapp
-               		  dockerfile: Dockerfile
-            		networks:
-              		  heig:
-               		    ipv4_address: ${WEBAPP_3_IP}
-            		ports:
-                      - "4002:3000"
-        			environment:
-                	  - TAG=${WEBAPP_3_NAME}
-                	  - SERVER_IP=${WEBAPP_3_IP}
-      
-     		 	haproxy:
-        		 	environment:
-             		  - WEBAPP_3_IP=${WEBAPP_3_IP}
+			services :
+				webapp3:
+					container_name: ${WEBAPP_3_NAME}
+					build:
+						context: ./webapp
+						dockerfile: Dockerfile
+					networks:
+						heig:
+							ipv4_address: ${WEBAPP_3_IP}
+					ports:
+						- "4002:3000"
+					environment:
+						- TAG=${WEBAPP_3_NAME}
+						- SERVER_IP=${WEBAPP_3_IP}
+						
+				haproxy:
+					environment:
+						- WEBAPP_3_IP=${WEBAPP_3_IP}
       
    
    2. `\ha\scripts\run.sh` : 
    
       
-      		sed -i 's/<s3>/$S3_PORT_3000_TCP_ADDR/g' /usr/local/etc/haproxy/haproxy.cfg
+			sed -i 's/<s3>/$S3_PORT_3000_TCP_ADDR/g' /usr/local/etc/haproxy/haproxy.cfg
       
    
    3. `\ha\config\haproxy.cfg` : 
    
-      
-      		backend nodes
-      	   		 server s3 ${WEBAPP_3_IP}:3000 check
+   			backend nodes
+      			server s3 ${WEBAPP_3_IP}:3000 check
       
    
 3. <a name="M3"></a>**[M3]** **Based on your previous answers, you have detected some issues in the current solution. Now propose a better approach at a high level.**
