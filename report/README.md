@@ -40,7 +40,7 @@ Le but de ce laboratoire est de prendre la laboratoire précédent et de l’am�
   
    **Réponse:** Ajout des codes suivants dans les fichiers correspondants
    
-   1. `docker-compose.yml`: 
+   1. `docker-compose.yml` : 
 
       ```
    services :
@@ -63,13 +63,13 @@ Le but de ce laboratoire est de prendre la laboratoire précédent et de l’am�
                   - WEBAPP_3_IP=${WEBAPP_3_IP}
       ```
    
-   2. `\ha\scripts\run.sh`
+   2. `\ha\scripts\run.sh` : 
    
       ```
       sed -i 's/<s3>/$S3_PORT_3000_TCP_ADDR/g' /usr/local/etc/haproxy/haproxy.cfg
       ```
    
-   3. `\ha\config\haproxy.cfg` 
+   3. `\ha\config\haproxy.cfg` : 
    
       ```
       backend nodes
@@ -112,17 +112,11 @@ Le but de ce laboratoire est de prendre la laboratoire précédent et de l’am�
 
 **Deliverables**:
 
-1. **Take a screenshot of the stats page of HAProxy at**
-   **<http://192.168.42.42:1936>. You should see your backend nodes. It**
-   **should be really similar to the screenshot of the previous task.**
+1. **Take a screenshot of the stats page of HAProxy at <http://192.168.42.42:1936>. You should see your backend nodes. It should be really similar to the screenshot of the previous task.**
 
    <img src="images/task1.png" style="zoom:50%" />
    
-2. **Describe your difficulties for this task and your understanding of**
-   **what is happening during this task. Explain in your own words why**
-   **are we installing a process supervisor. Do not hesitate to do more**
-   **research and to find more articles on that topic to illustrate the**
-   **problem.**
+2. **Describe your difficulties for this task and your understanding of what is happening during this task. Explain in your own words why are we installing a process supervisor. Do not hesitate to do more research and to find more articles on that topic to illustrate the problem.**
 
    Nous n’avons eu aucune difficulté lors de la réalisation de cette tâche.
 
@@ -141,29 +135,29 @@ Le but de ce laboratoire est de prendre la laboratoire précédent et de l’am�
 
 2. **Give the answer to the question about the existing problem with the current solution.**
    
-Le problème de cette solution est qu’on lie le HAProxy avec les webapp avec le flag `—link`, ce qui nous oblige à démarrer les serveurs avant le HAProxy et de devoir redémarrer le HAProxy, ainsi que tous ses noeuds pour chaque ajout de serveur.
+	Le problème de cette solution est qu’on lie le HAProxy avec les webapp avec le flag `—link`, ce qui nous oblige à démarrer les serveurs avant le HAProxy et de devoir redémarrer le HAProxy, ainsi que tous ses noeuds pour chaque ajout de serveur.
    
 3. **Give an explanation on how `Serf` is working. Read the official website to get more details about the `GOSSIP` protocol used in `Serf`. Try to find other solutions that can be used to solve similar situations where we need some auto-discovery mechanism.**
    
    **`Serf`** est un outil de gestion de cluster et de détection de panne. Il permet de créer un cluster avec tous ses noeuds afin qu’il puisse communiquer entre eux. Tout cela se fait grâce à l’agent serf installé sur chacun des noeuds, ce qui permet à ces derniers d’être notifié des arrivées et départs de noeuds du cluster.
    
-**`Serf`** permet également de détecter les noeuds défaillants en quelques secondes, d’avertir le reste du cluster et d’executer des scripts de gestion personnalisé permettant de gérer ces événements.
+	**`Serf`** permet également de détecter les noeuds défaillants en quelques secondes, d’avertir le reste du cluster et d’executer des scripts de gestion personnalisé permettant de gérer ces événements.
    
-**`Serf`** peut aussi propagé des événements et des requêtes personnalisés vers le cluster. Ces dernières peuvent être utilisées pour déclenché des déploiements ou encore propager des configurations.
+	**`Serf`** peut aussi propagé des événements et des requêtes personnalisés vers le cluster. Ces dernières peuvent être utilisées pour déclenché des déploiements ou encore propager des configurations.
    
-**`GOSSIP`** est un protocole de communication basé sur le protocole SWIM, il utilise UDP pour envoyer des messages en broadcast au cluster. C’est grâce à ce protocol Gossip que les prôblème majeur de serf (l'appartenance, la détection et la récupération des pannes et la propagation d'événements personnalisés) sont résolus.
+	**`GOSSIP`** est un protocole de communication basé sur le protocole SWIM, il utilise UDP pour envoyer des messages en broadcast au cluster. C’est grâce à ce protocol Gossip que les prôblème majeur de serf (l'appartenance, la détection et la récupération des pannes et la propagation d'événements personnalisés) sont résolus.
    
-Autres solutions :
+	Autres solutions :
    
-- Consul
-   - Etcd
-- Apache ZooKeeper
+	- Consul
+   	- Etcd
+	- Apache ZooKeeper
    
    Sources : 
    
-- https://www.serf.io/intro/index.html
-   - https://www.serf.io/docs/internals/gossip.html
-- https://devopscube.com/open-source-service-discovery/
+	- https://www.serf.io/intro/index.html
+   	- https://www.serf.io/docs/internals/gossip.html
+	- https://devopscube.com/open-source-service-discovery/
    
    
 
@@ -174,11 +168,11 @@ Autres solutions :
 
 1. **Provide the docker log output for each of the containers:  `ha`, `s1` and `s2`. Put your logs in the `logs` directory you created in the previous task.**
    
-Tous les logs de chaque conteneur sont dans leur répertoire réspectif (`logs/task3/<container>`).
+	Tous les logs de chaque conteneur sont dans leur répertoire réspectif (`logs/task3/<container>`).
    
 2. **Provide the logs from the `ha` container gathered directly from the `/var/log/serf.log` file present in the container. Put the logs in the `logs` directory in your repo.**
    
-Le fichier contenant les logs de cette étape se trouve dans (`logs/task3/ha/log-ha-serf`)
+	Le fichier contenant les logs de cette étape se trouve dans (`logs/task3/ha/log-ha-serf`)
 
 
 ## <a name="task-4"></a>Task 4: Use a template engine to easily generate configuration files
@@ -224,13 +218,13 @@ Le fichier contenant les logs de cette étape se trouve dans (`logs/task3/ha/log
    
    Les logs après chaque étape se trouvent dans le dossier `logs/task4/ha/`. les fichiers de log se nomment `ha_cfg-ha`, `ha_cfg-s1` et `ha_cfg-s2`.
    
-**In addition, provide a log file containing the output of the `docker ps` console and another file (per container) with `docker inspect <container>`. Four files are expected.**
+	**In addition, provide a log file containing the output of the `docker ps` console and another file (per container) with `docker inspect <container>`. Four files are expected.**
    
-Les fichiers de logs contenant ces logs se trouvent dans le dossier `logs/task4/`.
+	Les fichiers de logs contenant ces logs se trouvent dans le dossier `logs/task4/`.
    
    Le fichier contenant la commande `docker ps` se nomme `docker_ps`.
    
-Les fichiers contenant la commandes `docker inspect <container>` se nomment `docker_inspect_ha`, `docker_inspect_s1` et `docker_inspect_s2`
+	Les fichiers contenant la commandes `docker inspect <container>` se nomment `docker_inspect_ha`, `docker_inspect_s1` et `docker_inspect_s2`
    
 4. **Based on the three output files you have collected, what can you say about the way we generate it? What is the problem if any?**
 
@@ -252,15 +246,13 @@ Les fichiers contenant la commandes `docker inspect <container>` se nomment `doc
    
    **In addition, provide a log file containing the output of the `docker ps` console and another file (per container) with `docker inspect <container>`. Four files are expected.**
    
-le fichier contenant la sortie de la commmande `docker ps` est le suivant : `logs/task5/docker_ps`. 
+	le fichier contenant la sortie de la commmande `docker ps` est le suivant : `logs/task5/docker_ps`. 
    
    les fichiers contanant la sortie de la commande `docker inspect <container>` pour chacun des conteneurs se trouvent au chemin suivant : `logs/task5/` et se nomment respectivement `docker_inspect_ha`, `docker_inspect_s1` et `docker_inspect_s2`. 
    
 2. **Provide the list of files from the `/nodes` folder inside the `ha` container. One file expected with the command output.**
    
-la liste des fichiers contenu dans le répertoire `/nodes ` se trouvent au chemin suivant :
-   
-`logs/task5/ha/nodes`.
+	la liste des fichiers contenu dans le répertoire `/nodes ` se trouvent au chemin suivant : `logs/task5/ha/nodes`.
    
 3. **Provide the configuration file after you stopped one container and the list of nodes present in the `/nodes` folder. One file expected with the command output. Two files are expected.**
    
