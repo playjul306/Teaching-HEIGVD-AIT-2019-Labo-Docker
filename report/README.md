@@ -47,20 +47,20 @@ Le but de ce laboratoire est de prendre la laboratoire précédent et de l’am�
         		webapp3:
              		container_name: ${WEBAPP_3_NAME}
              		build:
-               		context: ./webapp
-               		dockerfile: Dockerfile
-            		 networks:
-              		 heig:
-                		 ipv4_address: ${WEBAPP_3_IP}
-            		 ports:
-              		 - "4002:3000"
-        			 environment:
-                		  - TAG=${WEBAPP_3_NAME}
-                 		 - SERVER_IP=${WEBAPP_3_IP}
+               		  context: ./webapp
+               		  dockerfile: Dockerfile
+            		networks:
+              		  heig:
+               		    ipv4_address: ${WEBAPP_3_IP}
+            		ports:
+                      - "4002:3000"
+        			environment:
+                	  - TAG=${WEBAPP_3_NAME}
+                	  - SERVER_IP=${WEBAPP_3_IP}
       
      		 	haproxy:
         		 	environment:
-             		 	- WEBAPP_3_IP=${WEBAPP_3_IP}
+             		  - WEBAPP_3_IP=${WEBAPP_3_IP}
       
    
    2. `\ha\scripts\run.sh` : 
