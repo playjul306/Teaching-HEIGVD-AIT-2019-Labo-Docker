@@ -1,127 +1,16 @@
-title: Lab 04 - Docker
----
+AIT: Lab 04 - Docker
+===
 
-## Lab 04 - Docker
+> Auteurs : Benoit Julien – Sütcü Volkan
 
+[TOC]
 
-#### Pedagogical objectives
+## Introduction
 
-* Build your own Docker images
-
-* Become familiar with lightweight process supervision for Docker
-
-* Understand core concepts for dynamic scaling of an application in production
-
-* Put into practice decentralized management of web server instances
-
-#### Instructions for the lab report
-
-This lab builds on a previous lab on load balancing.
-
-In this lab you will perform a number of tasks and document your progress in a
-lab report. Each task specifies one or more deliverables to be produced.
-Collect all the deliverables in your lab report. Give the lab report a structure
-that mimics the structure of this document.
-
-We expect you to have in your repository (you will get the instructions later
-for that) a folder called `report` and a folder called `logs`. Ideally, your
-report should be in Markdown format directly in the repository.
-
-The lab consists of 6 tasks and one initial task (the initial task
-should be quick if you already completed the lab on load balancing):
-
-0. [Identify issues and install the tools](#task-0)
-1. [Add a process supervisor to run several processes](#task-1)
-2. [Add a tool to manage membership in the web server cluster](#task-2)
-3. [React to membership changes](#task-3)
-4. [Use a template engine to easily generate configuration files](#task-4)
-5. [Generate a new load balancer configuration when membership changes](#task-5)
-6. [Make the load balancer automatically reload the new configuration](#task-6)
-
-**Remarks**:
-
-- In your report reference the task numbers and question numbers of
-  this document.
-
-- The version of HAProxy used in this lab is `1.5`. When reading the
-  documentation, make sure you are looking at this version. Here is
-  the link:
-  <http://cbonte.github.io/haproxy-dconv/configuration-1.5.html>
-
-  **Note**: There is an exception for that later in the lab. The
-  documentation for a part of HAProxy (the command line help) is not
-  available in 1.5. Therefore, we use the doc for 1.6 which is not
-  different for our usage.
-
-- In the report give the URL of the repository that you forked off this lab.
-
-- The images and the web application are a bit different from the lab on load
-  balancing. The web app no longer requires a tag. An environment variable
-  is defined in the Docker files to specify a role for each image. We will see
-  later how to use that.
-
-- We expect, at least, to see in your report:
-
-  - An introduction describing briefly the lab
-
-  - Seven chapters, one for each task (0 to 6)
-
-  - A table of content
-
-  - A chapter named "Difficulties" where you describe the problems you have encountered and
-    the solutions you found
-
-  - A conclusion
-
-**DISCLAIMER**: In this lab, we will go through one possible approach
-to manage a scalable infrastructure where we can add and remove nodes
-without having to rebuild the HAProxy image. This is not the only way
-to achieve this goal. If you do some research you will find a lot of
-tools and services to achieve the same kind of behavior.
+Le but de ce laboratoire est de prendre la laboratoire précédent et de l’améliorer afin qu’il puisse prendre en charge automatiquement l’ajout et la supression de noeuds. Ce dernier consiste en 6 tâches à effectuer les unes après les autres de façon à ce qu’à la fin nous obtenions un load balancer automatisé totalement fonctionnel tournant dans un emvironnement dockerisé
 
 
-### <a name="task-0"></a>Task 0: Identify issues and install the tools
-
-#### Identify issues
-
-In the previous lab, we built a simple distributed system with a load
-balancer and two web applications. The architecture of our distributed
-web application is shown in the following diagram:
-
-![Architecture](assets/img/Lab4_schema.png)
-
-The two web app containers stand for two web servers. They run a
-NodeJS sample application that implements a simple REST API. Each
-container exposes TCP port 3000 to receive HTTP requests.
-
-The HAProxy load balancer is listening on TCP port 80 to receive HTTP
-requests from users. These requests will be forwarded to and
-load-balanced between the web app containers. Additionally it exposes
-TCP ports 1936 and 9999 for the stats page and the command-line
-interface.
-
-For more details about the web application, take a look to the
-[previous lab](https://github.com/SoftEng-HEIGVD/Teaching-HEIGVD-AIT-2015-Labo-02).
-
-Now suppose you are working for a big e-tailer like Galaxus or
-Zalando. Starting with Black Friday and throughout the holiday season
-you see traffic to your web servers increase several times as
-customers are looking for and buying presents. In January the traffic
-drops back again to normal. You want to be able to add new servers as
-the traffic from customers increases and you want to be able to remove
-servers as the traffic goes back to normal.
-
-Suppose further that there is an obscure bug in the web application
-that the developers haven't been able to understand yet. It makes the
-web servers crash unpredictably several times per week. When you
-detect that a web server has crashed you kill its container and you
-launch a new container.
-
-Suppose further currently your web servers and your load balancer are
-deployed like in the previous lab. What are the issues with this
-architecture? Answer the following questions. The questions are
-numbered from `M1` to `M6` to refer to them later in the lab. Please
-give in your report the reference of the question you are answering.
+## <a name="task-0"></a>Task 0: Identify issues and install the tools
 
 1. <a name="M1"></a>**[M1]** **Do you think we can use the current solution for a production environment? What are the main problems when deploying it in a production environment?**
   
@@ -179,6 +68,8 @@ give in your report the reference of the question you are answering.
   
    **Do you think our current solution is able to run additional management processes beside the main web server / load balancer process in a container? If no, what is missing / required to reach the goal? If yes, how to proceed to run for example a log forwarding process?**
    
+   **Réponses: ** Non, dans le cas présent il n’est pas possible d’executer plus d’un processus par conteneur Docker, alors que c’est exactement ce qu’il nous faudrait. C’est pourquoi nous allons utiliser un superviseur de processus dans chaque conteneur, afin de nous permettre de faire cela.
+   
 6. <a name="M6"></a>**[M6]** **In our current solution, although the**
    **load balancer configuration is changing dynamically, it doesn't**
    **follow dynamically the configuration of our distributed system when**
@@ -192,7 +83,7 @@ give in your report the reference of the question you are answering.
    **really dynamic? It's far away from being a dynamic**
    **configuration. Can you propose a solution to solve this?**
    
-   
+   **Réponses: ** Lorsqu’on ajoute des nouveaux noeuds, le fichier de configuration du proxy doit être modifié à la main afin d’être pris en compte par le load balancer. Dans ce laboratoire, nous allons faire en sorte que le fichier de configuration du proxy se régénère automatiquement en utilisant un modèle.
 
 **Deliverables**:
 
@@ -206,7 +97,7 @@ give in your report the reference of the question you are answering.
    voici l’url de notre repo : https://github.com/playjul306/Teaching-HEIGVD-AIT-2019-Labo-Docker
 
 
-### <a name="task-1"></a>Task 1: Add a process supervisor to run several processes
+## <a name="task-1"></a>Task 1: Add a process supervisor to run several processes
 
 **Deliverables**:
 
@@ -227,7 +118,7 @@ give in your report the reference of the question you are answering.
    Le but de cette tâches est de permettre aux conteneurs docker d’executer plusieurs processus grâce au superviseur de processus (`s6-overlay`) ajouté aux images docker. De plus cela nous permet d’éviter que le conteneur se tue une fois un processus terminé.
 
 
-### <a name="task-2"></a>Task 2: Add a tool to manage membership in the web server cluster
+## <a name="task-2"></a>Task 2: Add a tool to manage membership in the web server cluster
 
 **Deliverables**:
 
@@ -274,7 +165,7 @@ give in your report the reference of the question you are answering.
    
 
 
-### <a name="task-3"></a>Task 3: React to membership changes
+## <a name="task-3"></a>Task 3: React to membership changes
 
 **Deliverables**:
 
@@ -289,7 +180,7 @@ give in your report the reference of the question you are answering.
    Le fichier contenant les logs de cette étape se trouve dans (`logs/task3/ha/log-ha-serf`)
 
 
-### <a name="task-4"></a>Task 4: Use a template engine to easily generate configuration files
+## <a name="task-4"></a>Task 4: Use a template engine to easily generate configuration files
 
 **Deliverables**:
 
@@ -364,7 +255,7 @@ give in your report the reference of the question you are answering.
    Une solution à ce problème serait d’ajouter les nouvelles données à la fin du fichier et de garder le contenu précédent du fichier. 
 
 
-### <a name="task-5"></a>Task 5: Generate a new load balancer configuration when membership changes
+## <a name="task-5"></a>Task 5: Generate a new load balancer configuration when membership changes
 
 **Deliverables**:
 
@@ -404,7 +295,7 @@ give in your report the reference of the question you are answering.
    **own tools or the ones you discovered online. In that case, do not**
    **forget to cite your references.**
 
-### <a name="task-6"></a>Task 6: Make the load balancer automatically reload the new configuration
+## <a name="task-6"></a>Task 6: Make the load balancer automatically reload the new configuration
 
 **Deliverables**:
 
@@ -441,6 +332,14 @@ give in your report the reference of the question you are answering.
    **improvements or ways to do the things differently. If any, provide**
    **references to your readings for the improvements.**
 
+   
+   
 3. **(Optional:) Present a live demo where you add and remove a backend container.**
 
+## Difficulties
 
+La seule réelle difficulté que nous avons eu ne concernait pas à proprement dit le contenu du laboratoire, mais son environnement. En effet, nous avons eu un problème avec la machine virtuelle Ubuntu qui n’avait pas assez de stockage pour permettre le lancement des conteneurs et donc nous avons du rajouter du étendre le disque dur virtuelle pour pouvoir commencer le laboratoire, ce qui nous a retarder au départ.
+
+## Conclusion
+
+Nous avons appris à configurer un HaProxy afin de rendre son environnement dynamique et automatisé en partant d’un environnement totalement statique. Nous avons utilisé des outils comme `s6` et `serf` qui sont nouveaux pour nous et avons pu faire des recherches sur différents outils similaires afin de comprendre exactement ce que nous devions faire.
