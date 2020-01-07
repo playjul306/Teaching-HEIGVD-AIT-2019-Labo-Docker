@@ -27,12 +27,12 @@ AIT: Lab 04 - Docker
 
 ## <a name="Introduction"></a>Introduction
 
-Le but de ce laboratoire est de prendre la laboratoire précédent et de l’améliorer afin qu’il puisse prendre en charge automatiquement l’ajout et la supression de noeuds. Ce dernier consiste en 6 tâches à effectuer les unes après les autres de façon à ce qu’à la fin nous obtenions un load balancer automatisé totalement fonctionnel tournant dans un emvironnement dockerisé
+Le but de ce laboratoire est de prendre le précédent et de l’améliorer afin qu’il puisse prendre en charge automatiquement l’ajout et la supression de noeuds. Ce dernier consiste en 6 tâches à effectuer les unes après les autres de façon à ce qu’à la fin, nous obtenions un load balancer automatisé totalement fonctionnel tournant dans un environnement dockerisé.
 
 
 ## <a name="task-0"></a>Task 0: Identify issues and install the tools
 
-1. <a name="M1"></a>**[M1]** **Do you think we can use the current solution for a production environment? What are the main problems when deploying it in a production environment?**
+1. <a name="M1"></a>**[M1]** **Do you think we can use the current solution for a production environment ? What are the main problems when deploying it in a production environment?**
   
    **Réponse:** Non, car dans cette situation, à chaque fois qu'un serveur est déployé, il faut aller changer des fichiers de configuration dans l'infrastructure en production pour ajouter la prise en charge du nouveau noeud. Dans le cadre d'un environnement de grande envergure, ce genre de manipulation récurrente prendrait un temps conséquent à chaque ajout de noeud et donc, il faudrait automatiser cela.
 
@@ -59,20 +59,19 @@ Le but de ce laboratoire est de prendre la laboratoire précédent et de l’am�
 						
 				haproxy:
 					environment:
-						- WEBAPP_3_IP=${WEBAPP_3_IP}
-      
+   					- WEBAPP_3_IP=${WEBAPP_3_IP}
+   
    
    2. `\ha\scripts\run.sh` : 
    
-      
-			sed -i 's/<s3>/$S3_PORT_3000_TCP_ADDR/g' /usr/local/etc/haproxy/haproxy.cfg
-      
+	   
+   			sed -i 's/<s3>/$S3_PORT_3000_TCP_ADDR/g' /usr/local/etc/haproxy/haproxy.cfg
+   
    
    3. `\ha\config\haproxy.cfg` : 
    
    			backend nodes
-      			server s3 ${WEBAPP_3_IP}:3000 check
-      
+         			server s3 ${WEBAPP_3_IP}:3000 check
    
 3. <a name="M3"></a>**[M3]** **Based on your previous answers, you have detected some issues in the current solution. Now propose a better approach at a high level.**
   
@@ -86,7 +85,7 @@ Le but de ce laboratoire est de prendre la laboratoire précédent et de l’am�
   
    **Do you think our current solution is able to run additional management processes beside the main web server / load balancer process in a container? If no, what is missing / required to reach the goal? If yes, how to proceed to run for example a log forwarding process?**
    
-   **Réponses:** Non, dans le cas présent il n’est pas possible d’executer plus d’un processus par conteneur Docker, alors que c’est exactement ce qu’il nous faudrait. C’est pourquoi nous allons utiliser un superviseur de processus dans chaque conteneur, afin de nous permettre de faire cela.
+   **Réponses:** Non, dans le cas présent, il n’est pas possible d’exécuter plus d’un processus par conteneur Docker, alors que c’est exactement ce qu’il nous faudrait. C’est pourquoi, nous allons utiliser un superviseur de processus dans chaque conteneur, afin de nous permettre de faire cela.
    
 6. <a name="M6"></a>**[M6]** **In our current solution, although the load balancer configuration is changing dynamically, it doesn’t follow dynamically the configuration of our distributed system when web servers are added or removed. If we take a closer look at the `run.sh` script, we see two calls to `sed` which will replace two lines in the `haproxy.cfg` configuration file just before we start `haproxy`. You clearly see that the configuration file has two lines and the script will replace these two lines.**
    
@@ -103,7 +102,7 @@ Le but de ce laboratoire est de prendre la laboratoire précédent et de l’am�
    
 2. **Give the URL of your repository URL in the lab report.**
 
-   voici l’url de notre repo : https://github.com/playjul306/Teaching-HEIGVD-AIT-2019-Labo-Docker
+   Voici l’URL de notre repo : https://github.com/playjul306/Teaching-HEIGVD-AIT-2019-Labo-Docker
 
 
 ## <a name="task-1"></a>Task 1: Add a process supervisor to run several processes
@@ -118,7 +117,7 @@ Le but de ce laboratoire est de prendre la laboratoire précédent et de l’am�
 
    Nous n’avons eu aucune difficulté lors de la réalisation de cette tâche.
 
-   Le but de cette tâches est de permettre aux conteneurs docker d’executer plusieurs processus grâce au superviseur de processus (`s6-overlay`) ajouté aux images docker. De plus cela nous permet d’éviter que le conteneur se tue une fois un processus terminé.
+   Le but de cette tâches est de permettre aux conteneurs docker d’exécuter plusieurs processus grâce au superviseur de processus (`s6-overlay`) ajouté aux images docker. De plus, cela nous permet d’éviter que le conteneur se tue une fois un processus terminé.
 
 
 ## <a name="task-2"></a>Task 2: Add a tool to manage membership in the web server cluster
@@ -139,11 +138,11 @@ Le but de ce laboratoire est de prendre la laboratoire précédent et de l’am�
    
    **`Serf`** est un outil de gestion de cluster et de détection de panne. Il permet de créer un cluster avec tous ses noeuds afin qu’il puisse communiquer entre eux. Tout cela se fait grâce à l’agent serf installé sur chacun des noeuds, ce qui permet à ces derniers d’être notifié des arrivées et départs de noeuds du cluster.
    
-	**`Serf`** permet également de détecter les noeuds défaillants en quelques secondes, d’avertir le reste du cluster et d’executer des scripts de gestion personnalisé permettant de gérer ces événements.
+	**`Serf`** permet également de détecter les noeuds défaillants en quelques secondes, d’avertir le reste du cluster et d’exécuter des scripts de gestion personnalisé permettant de gérer ces événements.
    
-	**`Serf`** peut aussi propagé des événements et des requêtes personnalisés vers le cluster. Ces dernières peuvent être utilisées pour déclenché des déploiements ou encore propager des configurations.
+	**`Serf`** peut aussi propagé des événements et des requêtes personnalisés vers le cluster. Ces dernières peuvent être utilisées pour déclencher des déploiements ou encore propager des configurations.
    
-	**`GOSSIP`** est un protocole de communication basé sur le protocole SWIM, il utilise UDP pour envoyer des messages en broadcast au cluster. C’est grâce à ce protocol Gossip que les prôblème majeur de serf (l'appartenance, la détection et la récupération des pannes et la propagation d'événements personnalisés) sont résolus.
+	**`GOSSIP`** est un protocole de communication basé sur le protocole SWIM, il utilise UDP pour envoyer des messages en broadcast au cluster. C’est grâce à ce protocol Gossip que les problème majeur de serf (l'appartenance, la détection et la récupération des pannes et la propagation d'événements personnalisés) sont résolus.
    
 	Autres solutions :
    
@@ -194,7 +193,7 @@ Le but de ce laboratoire est de prendre la laboratoire précédent et de l’am�
    
    La commande `RUN` crée une couche supplémentaire à chaque fois qu'elle est utilisée. Si l’on veut réduire la taille d’une image, il est préférable d’avoir un nombre minimal de couches, donc de commande `RUN` dans le cas présent. De ce fait, le build de l’image se fera plus rapidement.
    
-   En contrepartie, lorsque le Dockerfile est composé de plusieurs commandes `RUN`, et donc de plusieurs couches, le méchanisme de mise en cache de docker peut être utilisé pour d’autre images. De plus, utiliser plusieurs commandes à la suite, comme dans le deuxième exemple, réduit la lisibilité du Dockerfile.
+   En contrepartie, lorsque le Dockerfile est composé de plusieurs commandes `RUN`, et donc de plusieurs couches, le méchanisme de mise en cache de docker peut être utilisé pour d’autres images. De plus, utiliser plusieurs commandes à la suite, comme dans le deuxième exemple, réduit la lisibilité du Dockerfile.
    
    **There are also some articles about techniques to reduce the image size. Try to find them. They are talking about `squashing` or`flattening` images.**
    
@@ -210,7 +209,7 @@ Le but de ce laboratoire est de prendre la laboratoire précédent et de l’am�
    
 2. **Propose a different approach to architecture our images to be able to reuse as much as possible what we have done. Your proposition should also try to avoid as much as possible repetitions between your images.**
    
-   Comme dit lors du point précédent, il est préférable d’utiliser les commandes `RUN` séparément, afin que le mécanisme de mise en cache soit utilisé par les autres images ayant besoin de ces commandes. Toutes les autres devraient être utilisée de manière chainée, comme dans le deuxième l’exemple, afin de réduire le nombre de couche et donc la taille des images.
+   Comme dit lors du point précédent, il est préférable d’utiliser les commandes `RUN` séparément, afin que le mécanisme de mise en cache soit utilisé par les autres images ayant besoin de ces commandes. Toutes les autres devraient être utilisée de manière chainée, comme dans le deuxième exemple, afin de réduire le nombre de couche et donc la taille des images.
    
 3. **Provide the `/tmp/haproxy.cfg` file generated in the `ha` container after each step.  Place the output into the `logs` folder like you already did for the Docker logs in the previous tasks. Three files are expected.**
    
@@ -244,17 +243,17 @@ Le but de ce laboratoire est de prendre la laboratoire précédent et de l’am�
    
    **In addition, provide a log file containing the output of the `docker ps` console and another file (per container) with `docker inspect <container>`. Four files are expected.**
    
-	le fichier contenant la sortie de la commmande `docker ps` est le suivant : `logs/task5/docker_ps`. 
+	Le fichier contenant la sortie de la commmande `docker ps` est le suivant : `logs/task5/docker_ps`. 
    
    les fichiers contanant la sortie de la commande `docker inspect <container>` pour chacun des conteneurs se trouvent au chemin suivant : `logs/task5/` et se nomment respectivement `docker_inspect_ha`, `docker_inspect_s1` et `docker_inspect_s2`. 
    
 2. **Provide the list of files from the `/nodes` folder inside the `ha` container. One file expected with the command output.**
    
-	la liste des fichiers contenu dans le répertoire `/nodes ` se trouvent au chemin suivant : `logs/task5/ha/nodes`.
+	La liste des fichiers contenu dans le répertoire `/nodes ` se trouvent au chemin suivant : `logs/task5/ha/nodes`.
    
 3. **Provide the configuration file after you stopped one container and the list of nodes present in the `/nodes` folder. One file expected with the command output. Two files are expected.**
    
-   le fichier de configuration (`/usr/local/etc/haproxy/haproxy.cfg`) généré après l’arret du conteneur S1, ainsi que la liste des fichiers contenu dans le répertoire `/nodes ` se trouvent dans le répertoire suivant : `logs/task5/ha/` et se nomment respectivement `ha_cfg-s1_stopped` et `nodes-s1_stopped`. 
+   Le fichier de configuration (`/usr/local/etc/haproxy/haproxy.cfg`) généré après l’arret du conteneur S1, ainsi que la liste des fichiers contenu dans le répertoire `/nodes ` se trouvent dans le répertoire suivant : `logs/task5/ha/` et se nomment respectivement `ha_cfg-s1_stopped` et `nodes-s1_stopped`. 
 
    **In addition, provide a log file containing the output of the `docker ps` console. One file expected.**
 
@@ -270,7 +269,7 @@ Le but de ce laboratoire est de prendre la laboratoire précédent et de l’am�
    
    **Also provide the output of `docker ps` in a log file. At least one file is expected. You can provide one output per step of your experimentation according to your screenshots.**
    
-   Nous avons testé notre solution en ajoutant des conteneur et en enlevant pour vérifier si notre load balancer fonctionnait comme nous le voulions.
+   Nous avons testé notre solution en ajoutant des conteneurs et en enlevant pour vérifier si notre load balancer fonctionnait comme nous le voulions.
    
    - Nous avons d’abord ajouté le serveur s1 et avons copié le contenu de la commande `docker ps` dans le fichier `logs/task6/0-docker_ps-s1_started`. Les captures ci-dessous nous montrent le bon fonctionnement de l’application et du load balancer.
      <img src="images/task6-start_s1-stats.png" style=" zoom:50%" />
@@ -288,18 +287,20 @@ Le but de ce laboratoire est de prendre la laboratoire précédent et de l’am�
      <img src="images/task6-start_s4-stats.png" style=" zoom:50%" />
      <img src="images/task6-start_s4-info.png" style=" zoom:50%" />
    
-   Nous avons donc pu remarquer que le load balancer est capable de gérer automatiquement la suppression et l’ajout de noeuds avec un temps allant de mois d’une seconde à 2 secondes maximum.
+   Nous avons donc pu remarquer que le load balancer est capable de gérer automatiquement la suppression et l’ajout de noeuds avec un temps allant de moins d’une à deux secondes maximum.
    
 2. **Give your own feelings about the final solution. Propose improvements or ways to do the things differently. If any, provide references to your readings for the improvements.**
    
+   Nous Avons trouvé cette solution extrêmement compliquée à mettre en place et nous avons découvert que l'on pouvait gérer la configuration du HAProxy dynamiquement avec `HAProxy Runtime API`. 
    
+   Source : [HAProxy Runtime API](https://www.haproxy.com/blog/dynamic-configuration-haproxy-runtime-api/)
 
 3. **(Optional:) Present a live demo where you add and remove a backend container.**
 
 ## <a name="Difficulties"></a>Difficulties
 
-La seule réelle difficulté que nous avons eu ne concernait pas à proprement dit le contenu du laboratoire, mais son environnement. En effet, nous avons eu un problème avec la machine virtuelle Ubuntu qui n’avait pas assez de stockage pour permettre le lancement des conteneurs et donc nous avons du rajouter du étendre le disque dur virtuelle pour pouvoir commencer le laboratoire, ce qui nous a retarder au départ.
+La seule réelle difficulté que nous avons eu ne concernait pas, à proprement dit, le contenu du laboratoire mais son environnement. En effet, nous avons eu un problème avec la machine virtuelle Ubuntu qui n’avait pas assez de stockage pour permettre le lancement des conteneurs et donc nous avons dû étendre le disque dur virtuelle pour pouvoir commencer le laboratoire, ce qui nous a retardé au départ.
 
 ## <a name="Conclusion"></a>Conclusion
 
-Nous avons appris à configurer un HaProxy afin de rendre son environnement dynamique et automatisé en partant d’un environnement totalement statique. Nous avons utilisé des outils comme `s6` et `serf` qui sont nouveaux pour nous et avons pu faire des recherches sur différents outils similaires afin de comprendre exactement ce que nous devions faire.
+Nous avons appris à configurer un HAProxy afin de rendre son environnement dynamique et automatisé en partant d’un environnement totalement statique. Nous avons utilisé des outils comme `s6` et `serf` qui sont nouveaux pour nous et avons pu faire des recherches sur différents outils similaires afin de comprendre exactement ce que nous devions faire.
